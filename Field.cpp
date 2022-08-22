@@ -15,9 +15,7 @@ oPoint Field::FindFreeNeighbourCell(int X, int Y) {
 
     for (int cx = -1; cx < 2; ++cx) {
         for (int cy = -1; cy < 2; ++cy) {
-
-            tx = ValidateX(X + cx);
-
+            tx = X + cx;
             if (IsInBounds(tx, Y + cy)) {
                 if (boots[XY(tx, Y + cy)] == nullptr) {
                     tmpArray[i++].x = tx;   //Set(tx, Y + cy);
@@ -43,136 +41,143 @@ bool Field::AddObject(t_object &obj) {
     return true;
 }
 
+bool Field::AddObject(t_object &obj, int coord) {
+    if (boots[coord] != nullptr) return false;
+    boots[coord] = std::move(obj);
+    return true;
+}
+
 //Tick function for every object,
 //Returns true if object was destroyed
-[[maybe_unused]] void Field::ObjectTick(int &i_xy) {
-    assert(boots[i_xy] != nullptr);
-    int t = boots[i_xy]->tick();
-    if (t == 2) { return; }
-
-    //Fill brain input structure
-    BrainInput b_input;
-    auto lookAt = boots[i_xy]->GetDirection();
-
-    //Desired destination,
-    //that is what bot is lookinig at
-    int cx = boots[i_xy]->x + lookAt.x;
-    int cy = boots[i_xy]->y + lookAt.y;
-
-    cx = ValidateX(cx);
-
-    //If destination is out of bounds
-    if (!IsInBounds(cx, cy)) {
-        b_input.vision = 1.0f; //1 if unpassable
-    } else {
-        auto cxy = XY(cx, cy);
-        //Destination cell is empty
-
-        if (boots[cxy] == nullptr) {
-            //0 if empty
-            b_input.vision = 0.0f;
-        } else {
-            //0.5 if someone in that cell
-            b_input.vision = 0.5f;
-
-            //Calculate how close they are as relatives, based on mutation markers
-//            b_input.isRelative = 1.0f - (boots[cxy]->FindKinship(boots[i_xy]) * 1.0f) /
-//                                        (NumberOfMutationMarkers * 1.0f);
-            b_input.isRelative = boots[cxy]->dnk.distance(boots[i_xy]->dnk);
-        }
-    }
-    assert(boots[i_xy] != nullptr);
-    //Bot brain does its stuff
-    auto bots_ideas = boots[i_xy]->think(b_input);
-    assert(boots[i_xy] != nullptr);
-    //Multiply first
-    for (int b = 0; b < bots_ideas.divide; ++b) {
-        //Dies if energy is too low
-        if (boots[i_xy]->energy <= EnergyPassedToAChild + GiveBirthCost) {
-            boots[i_xy] = nullptr;
-            return;
-        } else {
-            //Gives birth otherwise
-            auto freeSpace = FindFreeNeighbourCell(boots[i_xy]->x, boots[i_xy]->y);
-            if (freeSpace.x != -1) {
-                boots[i_xy]->TakeEnergy(EnergyPassedToAChild + GiveBirthCost);
-                auto mutation = RandomPercent(MutationChancePercent);
-                auto val = MAKE_TObj(freeSpace.x, freeSpace.y,
-                                     EnergyPassedToAChild,
-                                     boots[i_xy]);
-                AddObject(val);
-                return;
-            }
-        }
-    }
-    assert(boots[i_xy] != nullptr);
-    //Then attack
-    if (bots_ideas.attack) {
-        //If dies of low energy
-        if (boots[i_xy]->TakeEnergy(AttackCost)) {
-            boots[boots[i_xy]->coord()] = nullptr;
-            return;
-        } else {
-            //Get direction of attack
-            auto dir = boots[i_xy]->GetDirection();
-            cx = ValidateX(boots[i_xy]->x + dir.x);
-            cy = boots[i_xy]->y + dir.y;
-            if (IsInBounds(cx, cy)) {
-                //If there is an object
-                auto cxy = XY(cx, cy);
-                if (boots[cxy]) {
-                    //Kill an object
-                    boots[i_xy]->GiveEnergy(boots[cxy]->energy, kills);
-                    boots[cxy] = nullptr;
-                } else { // when the attacked escapes
-                    // only stay and cry
-                }
-            }
-        }
-    } else {
-        //Rotate after
-        if (bots_ideas.rotate != 0) {
-            //If dies of low energy
-            if (boots[i_xy]->TakeEnergy(RotateCost)) {
-                boots[i_xy] = nullptr;
-                return;
-            }
-
-            boots[i_xy]->Rotate(bots_ideas.rotate);
-        }
-
-        //Move
-        if (bots_ideas.move) {
-            if (boots[i_xy]->TakeEnergy(MoveCost)) {
-                boots[i_xy] = nullptr;
-                return;
-            }
-
-            auto dir = boots[i_xy]->GetDirection();
-
-            cx = boots[i_xy]->x + dir.x;
-            cy = boots[i_xy]->y + dir.y;
-            cy = std::max(cy, 0);
-            cy = std::min(cy, FieldCellsHeight - 1);
-
-            cx = ValidateX(cx);
-
-//            if ((abs(cx - TEMP_x1) > 1) && (abs(cx - TEMP_x1) < 190)) {
-//                TEMP_x1 = bot->x;
+//[[maybe_unused]] void Field::ObjectTick(int &i_xy) {
+//    assert(boots[i_xy] != nullptr);
+//    int t = boots[i_xy]->tick();
+//    if (t == 2) { return; }
+//
+//    //Fill brain input structure
+//    BrainInput b_input;
+//    auto lookAt = boots[i_xy]->GetDirection();
+//
+//    //Desired destination,
+//    //that is what bot is looking at
+//    int cx = boots[i_xy]->x + lookAt.x;
+//    int cy = boots[i_xy]->y + lookAt.y;
+//
+//    cx = ValidateX(cx);
+//
+//    //If destination is out of bounds
+//    if (!IsInBounds(cx, cy)) {
+//        b_input.vision = 1.0f; //1 if unpassable
+//    } else {
+//        auto cxy = XY(cx, cy);
+//        //Destination cell is empty
+//
+//        if (boots[cxy] == nullptr) {
+//            //0 if empty
+//            b_input.vision = 0.0f;
+//        } else {
+//            //0.5 if someone in that cell
+//            b_input.vision = 0.5f;
+//
+//            //Calculate how close they are as relatives, based on mutation markers
+////            b_input.isRelative = 1.0f - (boots[cxy]->FindKinship(boots[i_xy]) * 1.0f) /
+////                                        (NumberOfMutationMarkers * 1.0f);
+//            b_input.isRelative = boots[cxy]->dnk.distance(boots[i_xy]->dnk);
+//        }
+//    }
+//    assert(boots[i_xy] != nullptr);
+//    //Bot brain does its stuff
+//    auto bots_ideas = boots[i_xy]->think(b_input);
+//    assert(boots[i_xy] != nullptr);
+//    //Multiply first
+//    for (int b = 0; b < bots_ideas.divide; ++b) {
+//        //Dies if energy is too low
+//        if (boots[i_xy]->energy <= EnergyPassedToAChild + GiveBirthCost) {
+//            boots[i_xy] = nullptr;
+//            return;
+//        } else {
+//            //Gives birth otherwise
+//            auto freeSpace = FindFreeNeighbourCell(boots[i_xy]->x, boots[i_xy]->y);
+//            if (freeSpace.x != -1) {
+//                boots[i_xy]->TakeEnergy(EnergyPassedToAChild + GiveBirthCost);
+//                auto mutation = RandomPercent(MutationChancePercent);
+//                auto val = MAKE_TObj(freeSpace.x, freeSpace.y,
+//                                     EnergyPassedToAChild,
+//                                     boots[i_xy]);
+//                AddObject(val);
+//                return;
 //            }
-
-            boots[XY(cx, cy)] = std::move(boots[i_xy]);
-        }
-            //Photosynthesis
-        else if (bots_ideas.photosynthesis) {
-            boots[i_xy]->GiveEnergy(GetSunEnergy(boots[i_xy]->x, boots[i_xy]->y), PS);
-        }
-
-    }
-}
+//        }
+//    }
+//    assert(boots[i_xy] != nullptr);
+//    //Then attack
+//    if (bots_ideas.attack) {
+//        //If dies of low energy
+//        if (boots[i_xy]->TakeEnergy(AttackCost)) {
+//            boots[boots[i_xy]->coord()] = nullptr;
+//            return;
+//        } else {
+//            //Get direction of attack
+//            auto dir = boots[i_xy]->GetDirection();
+//            cx = ValidateX(boots[i_xy]->x + dir.x);
+//            cy = boots[i_xy]->y + dir.y;
+//            if (IsInBounds(cx, cy)) {
+//                //If there is an object
+//                auto cxy = XY(cx, cy);
+//                if (boots[cxy]) {
+//                    //Kill an object
+//                    boots[i_xy]->GiveEnergy(boots[cxy]->energy, kills);
+//                    boots[cxy] = nullptr;
+//                } else { // when the attacked escapes
+//                    // only stay and cry
+//                }
+//            }
+//        }
+//    } else {
+//        //Rotate after
+//        if (bots_ideas.rotate != 0) {
+//            //If dies of low energy
+//            if (boots[i_xy]->TakeEnergy(RotateCost)) {
+//                boots[i_xy] = nullptr;
+//                return;
+//            }
+//
+//            boots[i_xy]->Rotate(bots_ideas.rotate);
+//        }
+//
+//        //Move
+//        if (bots_ideas.move) {
+//            if (boots[i_xy]->TakeEnergy(MoveCost)) {
+//                boots[i_xy] = nullptr;
+//                return;
+//            }
+//
+//            auto dir = boots[i_xy]->GetDirection();
+//
+//            cx = boots[i_xy]->x + dir.x;
+//            cy = boots[i_xy]->y + dir.y;
+//            cy = std::max(cy, 0);
+//            cy = std::min(cy, FieldCellsHeight - 1);
+//
+//            cx = ValidateX(cx);
+//
+////            if ((abs(cx - TEMP_x1) > 1) && (abs(cx - TEMP_x1) < 190)) {
+////                TEMP_x1 = bot->x;
+////            }
+//
+//            boots[XY(cx, cy)] = std::move(boots[i_xy]);
+//        }
+//            //Photosynthesis
+//        else if (bots_ideas.photosynthesis) {
+//            boots[i_xy]->GiveEnergy(GetSunEnergy(boots[i_xy]->x, boots[i_xy]->y), PS);
+//        }
+//
+//    }
+//}
 
 void Field::ObjectTick1(int &i_xy) {
     assert(boots[i_xy] != nullptr);
+    auto [i_x, i_y] = XYr(i_xy);
     int t = boots[i_xy]->tick();
     if (t == 2) { return; }
 
@@ -182,11 +187,11 @@ void Field::ObjectTick1(int &i_xy) {
     b_input.energy = static_cast<float>(boots[i_xy]->energy);
     b_input.rotation = static_cast<float>(boots[i_xy]->direction);
     //Desired destination,
-    //that is what bot is lookinig at
-    int cx = boots[i_xy]->x + lookAt.x;
-    int cy = boots[i_xy]->y + lookAt.y;
+    //that is what bot is looking at
+    int cx = i_x + lookAt.x;
+    int cy = i_y + lookAt.y;
 
-    cx = ValidateX(cx);
+//    cx = ValidateX(cx);
 
     //If destination is out of bounds
     if (!IsInBounds(cx, cy)) {
@@ -200,7 +205,7 @@ void Field::ObjectTick1(int &i_xy) {
         } else {
             int lvl;
             if (boots[cxy] != nullptr)
-            lvl = boots[cxy]->energy;
+                lvl = boots[cxy]->energy;
             //0.5 if someone in that cell
             b_input.vision = 0.5f;
             if (boots[cxy] != nullptr)
@@ -218,83 +223,87 @@ void Field::ObjectTick1(int &i_xy) {
 void Field::ObjectTick2(int &i_xy) {
     if (boots[i_xy] == nullptr) return;
     auto bots_ideas = boots[i_xy]->bots_ideas;
-    //Multiply first
+    auto [i_x, i_y] = XYr(i_xy);
+    // i am a tree
+
+
+    //Multiply
     for (int b = 0; b < bots_ideas.divide; ++b) {
         //Dies if energy is too low
-        // TODO make depended creaton on size
-        if (boots[i_xy]->energy <= EnergyPassedToAChild + GiveBirthCost) {
-            boots[i_xy] = nullptr;
-            return;
-        } else {
+        // TODO make depended creation on size
+        if (boots[i_xy]->energy > EnergyPassedToAChild + GiveBirthCost) {
             //Gives birth otherwise
-            auto freeSpace = FindFreeNeighbourCell(boots[i_xy]->x, boots[i_xy]->y);
-            if (freeSpace.x != -1) {
+            auto freeSpace = FindFreeNeighbourCell(i_x, i_y);
+            if (IsInBounds(freeSpace)) {
                 boots[i_xy]->TakeEnergy(EnergyPassedToAChild + GiveBirthCost);
-                auto mutation = RandomPercent(MutationChancePercent);
                 auto val = MAKE_TObj(freeSpace.x, freeSpace.y,
                                      EnergyPassedToAChild,
                                      boots[i_xy]);
-                AddObject(val);
-                return;
+                AddObject(val, XY(freeSpace.x, freeSpace.y));
+                boots[i_xy]->stat_birth++;
             }
         }
     }
     assert(boots[i_xy] != nullptr);
+
     //Then attack
     if (bots_ideas.attack) {
         //If dies of low energy
         auto dir = boots[i_xy]->GetDirection();
-        auto cx = ValidateX(boots[i_xy]->x + dir.x);
-        auto cy = boots[i_xy]->y + dir.y;
+        auto cx = i_x + dir.x; // ValidateX(i_x + dir.x);
+        auto cy = i_y + dir.y;
         auto cxy = XY(cx, cy);
+        assert(cxy != i_xy);
         if (IsInBounds(cx, cy) && boots[cxy] != nullptr) {
-            auto ad_diff = boots[cxy]->dnk.protetction_others - boots[i_xy]->dnk.atack_ability;
-            auto ad_summ = boots[cxy]->dnk.protetction_others + boots[i_xy]->dnk.atack_ability;
+            auto ad_diff = boots[cxy]->dnk.def_all - boots[i_xy]->dnk.kill_ability;
+            auto ad_summ = boots[cxy]->dnk.def_all + boots[i_xy]->dnk.kill_ability;
             auto attack_cost = AttackCost * ad_diff / (ad_summ + 2) + AttackCost;
-            if (boots[i_xy]->TakeEnergy(attack_cost)) {
-                boots[boots[i_xy]->coord()] = nullptr;
-                return;
-            } else { //Kill an object
+            if (boots[i_xy]->energy > attack_cost) { //Kill an object
+                boots[i_xy]->stat_kills++;
+                boots[i_xy]->TakeEnergy(attack_cost);
                 boots[i_xy]->GiveEnergy(boots[cxy]->energy, kills);
                 boots[cxy] = nullptr;
             }
         }
-    } else {
-        //Rotate after
-        if (bots_ideas.rotate != 0) {
-            //If dies of low energy
-            if (boots[i_xy]->TakeEnergy(RotateCost)) {
-                boots[i_xy] = nullptr;
-                return;
-            }
+    }
 
+    assert(boots[i_xy] != nullptr);
+    if (bots_ideas.rotate != 0) {
+        //If dies of low energy
+        if (boots[i_xy]->energy > RotateCost) {
             boots[i_xy]->Rotate(bots_ideas.rotate);
-        }
-
-        //Move
-        if (bots_ideas.move) { // TODO make move cost on weight and terrain
-            if (boots[i_xy]->TakeEnergy(MoveCost)) {
-                boots[i_xy] = nullptr;
-                return;
-            }
-
-            auto dir = boots[i_xy]->GetDirection();
-
-            auto cx = boots[i_xy]->x + dir.x;
-            auto cy = boots[i_xy]->y + dir.y;
-            cy = std::max(cy, 0);
-            cy = std::min(cy, FieldCellsHeight - 1);
-            cx = ValidateX(cx);
-            boots[XY(cx, cy)] = std::move(boots[i_xy]);
-        }
-            //Photosynthesis
-        else if (bots_ideas.photosynthesis) { // TOO make photosyntes effectivity
-            auto ps_ab = (10 + boots[i_xy]->dnk.ps_ability) / 10;
-            auto sun = GetSunEnergy(boots[i_xy]->x, boots[i_xy]->y) + ps_ab;
-            boots[i_xy]->GiveEnergy(sun, PS);
+            boots[i_xy]->TakeEnergy(RotateCost);
         }
     }
+
+    //Move
+    //Photosynthesis
+    if (bots_ideas.photosynthesis) { // TOO make photosynthesis effectivity
+        auto ps_ab = (10 + boots[i_xy]->dnk.ps_ability) / 10;
+        auto sun = GetSunEnergy(i_x, i_y) * ps_ab;
+        boots[i_xy]->GiveEnergy(sun, PS);
+        return;
+    }
+
+    assert(boots[i_xy] != nullptr);
+    if (bots_ideas.move) { // TODO make move cost on weight and terrain
+        if (boots[i_xy]->energy > MoveCost) {
+            auto dir = boots[i_xy]->GetDirection();
+            auto cx = i_x + dir.x;
+            auto cy = i_y + dir.y;
+//            cy = std::max(cy, 0);
+//            cx = ValidateX(cx);
+            auto c_xy = XY(cx, cy);
+            if (IsInBounds(cx, cy) && (boots[c_xy] == nullptr)) {
+                boots[i_xy]->stat_steps++;
+                boots[i_xy]->TakeEnergy(MoveCost);
+                boots[c_xy] = std::move(boots[i_xy]);
+            }
+        }
+    }
+
 }
+
 
 //tick function for single threaded build
 inline void Field::tick_single_thread() {
@@ -323,26 +332,25 @@ inline void Field::tick_single_thread() {
             ObjectTick2(m_ix);
         }
     };
-
-
-//    tbb::parallel_for(0, total / 4, f);
-//    tbb::parallel_for(total / 4, total / 2, f);
-//    tbb::parallel_for(total / 2, total * 3 / 4, f);
-//    tbb::parallel_for(total * 4 / 4, total, f);
     for (auto i = 0; i < total; i++) f1(i);
     for (auto i = 0; i < total; i++) f2(i);
 
-    unsigned long sPS{0}, sK{0}, sM{0};
+    unsigned long sPS{0}, sK{0}, sM{0}, kills{0}, birth{0}, steps{0};
     for (auto i = 0; i < total; i++) {
         if (boots[i] == nullptr) continue;
         sPS += boots[i]->energyFromPS;
         sK += boots[i]->energyFromKills;
         sM += boots[i]->energyFromMinerals;
+        kills += boots[i]->stat_kills;
+        birth += boots[i]->stat_birth;
+        steps += boots[i]->stat_steps;
     }
     if (frame_number % 10 != 9) return;
     unsigned long E = sPS + sK + sM + 1;
     std::cout << " Total:" << E
-              << "PS:" << 100 * sPS / E << " Kills:" << 100 * sK / E << " Minerals:" << 100 * sM / E << std::endl;
+              << "PS:" << 100 * sPS / E << " Kills:" << 100 * sK / E << " Minerals:" << 100 * sM / E
+              << " kills:" << kills << " birth:" << birth << " steps:" << steps
+              << std::endl;
 }
 
 //Tick function
@@ -473,8 +481,6 @@ void Field::Annotate(frame_type &image) const {
         cv::putText(image, l, text_org, font, font_size,
                     cv::Scalar(255, 100, 200), font_thickness, 8);
     }
-
-
 }
 
 int Field::GetSunEnergy(int x, int y) const {
@@ -500,7 +506,6 @@ int Field::GetSunEnergy(int x, int y) const {
 }
 
 void Field::ShowMutations() {
-
     int max_energy{0};
     int protetction_front{0};
     int protetction_others{0};
@@ -510,23 +515,25 @@ void Field::ShowMutations() {
     int mutability_body{0};
     int mutability_brain{0};
     int max_life_time{0};
-    for (auto ix = 0; ix < FieldCellsWidth *FieldCellsHeight; ix++){
+    for (auto ix = 0; ix < FieldCellsWidth * FieldCellsHeight; ix++) {
         if (boots[ix] == nullptr) continue;
         max_energy = std::max(max_energy, boots[ix]->dnk.max_energy);
-        protetction_front = std::max(protetction_front, boots[ix]->dnk.protetction_front);
-        protetction_others = std::max(protetction_others, boots[ix]->dnk.protetction_others);
-        atack_ability = std::max(atack_ability, boots[ix]->dnk.atack_ability);
+        protetction_front = std::max(protetction_front, boots[ix]->dnk.def_front);
+        protetction_others = std::max(protetction_others, boots[ix]->dnk.def_all);
+        atack_ability = std::max(atack_ability, boots[ix]->dnk.kill_ability);
         minerals_ability = std::max(minerals_ability, boots[ix]->dnk.minerals_ability);
         ps_ability = std::max(ps_ability, boots[ix]->dnk.ps_ability);
         mutability_body = std::max(mutability_body, boots[ix]->dnk.mutability_body);
         mutability_brain = std::max(mutability_brain, boots[ix]->dnk.mutability_brain);
         max_life_time = std::max(max_life_time, boots[ix]->dnk.max_life_time);
     }
-
+    // TODO out mutation map
+    // TODO add solar map
+    // TODO out bot descr
 //    for (auto x = 0; x < FieldCellsWidth; x++)
 //        for (auto y = 0; y < FieldCellsHeight; y++) {
 //            if (img.at<uchar>(x, y) > 127) {
-//                terrain[x][y] = Terrain::eart;
+//                terrain[x][y] = Terrain::earth;
 //            } else {
 //                terrain[x][y] = Terrain::sea;
 //            }
@@ -537,3 +544,5 @@ void Field::ShowMutations() {
 
 
 
+// TODO add organic after death
+// TODO prpbably add organic on photosynthes

@@ -51,7 +51,7 @@ public:
 
     //Tick function for every object,
     //Returns true if object was destroyed
-    [[maybe_unused]] void ObjectTick(int &i_xy);
+//    [[maybe_unused]] void ObjectTick(int &i_xy);
     void ObjectTick1(int &i_xy);
     void ObjectTick2(int &i_xy);
 
@@ -85,6 +85,7 @@ public:
 
     void ShowMutations();
 
+    bool AddObject(t_object &obj, int coord);
 };
 
 

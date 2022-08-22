@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(BraiChain VERSION 1.0 LANGUAGES C CXX)
-set(TARGET_NAME "BraiChain")
+project(BrainChain VERSION 1.0 LANGUAGES C CXX)
+set(TARGET_NAME "BrainChain")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 #

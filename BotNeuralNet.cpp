@@ -20,8 +20,8 @@ float BotNeuralNet::RadialBasisActivation(float value) {
 }
 
 void BotNeuralNet::ClearMemory() {
-    for (auto i = 0; i < NumNeuronLayers; i++)
-        for (auto j = 0; j < NeuronsInLayer; j++) allMemory[i][j] = 0;
+    for (auto & i : allMemory)
+        for (float & j : i) j = 0;
 }
 
 

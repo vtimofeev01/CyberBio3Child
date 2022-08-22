@@ -44,7 +44,7 @@ void Bot::ChangeColor(const int str) {
 
 
 //Experimental
-void Bot::SlightlyMutate() {
+[[maybe_unused]] void Bot::SlightlyMutate() {
     brain.MutateSlightly();
 
 #ifdef ChangeColorSlightly
@@ -109,7 +109,7 @@ BrainOutput Bot::think(BrainInput input) {
     //Input data
     {
         //Energy
-        brain.allValues[0][0] = (float) (1000 * energy / MaxPossibleEnergyForABot) / 1000.f;
+        brain.allValues[0][0] = static_cast<float>(1000 * energy / MaxPossibleEnergyForABot) / 1000.f;
 
         //Sight
         brain.allValues[0][1] = input.vision;
@@ -118,10 +118,10 @@ BrainOutput Bot::think(BrainInput input) {
         brain.allValues[0][2] = input.isRelative;
 
         //Rotation
-        brain.allValues[0][3] = (direction * 1.0f) / 7.0f;
+        brain.allValues[0][3] = static_cast<float>(direction) / 7.0f;
 
         //Height
-        brain.allValues[0][4] = (y * 1.0f) / (FieldCellsHeight * 1.0f);
+        brain.allValues[0][4] =0 ; // TODO find what to use
     }
 
     //Compute
@@ -136,10 +136,6 @@ BrainOutput Bot::think(BrainInput input) {
     } else if (toRet.divide) {
         fertilityDelay = FertilityDelay;
     }
-
-    //if(toRet.attack == 1)
-    //return toRet;
-
     return toRet;
 }
 
@@ -148,10 +144,10 @@ int Bot::tick() {
     energy -= EveryTickEnergyPenalty;
     // penalty from DNK
     const int pen_factor = 1;
-    energy -= dnk.protetction_front * pen_factor;
-    energy -= dnk.protetction_others * pen_factor;
+    energy -= dnk.def_front * pen_factor;
+    energy -= dnk.def_all * pen_factor;
     energy -= dnk.minerals_ability * pen_factor;
-    energy -= dnk.atack_ability * pen_factor;
+    energy -= dnk.kill_ability * pen_factor;
     energy -= dnk.ps_ability * pen_factor;
     energy -= std::max(0, dnk.max_energy - MaxPossibleEnergyForABot) / 20;
     if (((energy) <= 0) || (lifetime >= MaxBotLifetime))
@@ -258,72 +254,6 @@ oPoint Bot::GetDirection() const {
     return Rotations[direction];
 }
 
-/*Get neuron summary(info)
-Format: (all integers)
--simple neurons
--radial basis neurons
--random neurons
--memory neurons (if any)
--total connections
--dead end neurons
--total neurons
-*/
-summary_return Bot::GetNeuronSummary() {
-    int toRet[6] = {0, 0, 0, 0, 0, 0};
-    Neuron *n;
-
-    for (unt xi = 1; xi < NumNeuronLayers; ++xi) {
-        for (unt yi = 0; yi < NeuronsInLayer; ++yi) {
-            n = &brain.allNeurons[xi][yi];
-
-            switch (n->type) {
-                case basic:
-                    toRet[0]++;
-                    break;
-                case radialbasis:
-                    toRet[1]++;
-                    break;
-                case randomizer:
-                    toRet[2]++;
-                    break;
-                case memory:
-                    toRet[3]++;
-                    break;
-                case input:
-                    break;
-                case output:
-                    break;
-            }
-
-            toRet[4] += n->numConnections;
-
-            if (n->numConnections == 0)
-                toRet[5]++;
-        }
-    }
-
-    return {toRet[0], toRet[1], toRet[2], toRet[3], toRet[4], toRet[5], NumNeuronLayers * NeuronsInLayer};
-}
-
-
-//int Bot::FindKinship(t_object &stranger) {
-//    int numMarkers = 0;
-//
-//    for (unt i = 0; i < NumberOfMutationMarkers; ++i) {
-//        if (mutationMarkers[i] == stranger->mutationMarkers[i])
-//            ++numMarkers;
-//    }
-//
-//#ifdef OneMarkerDifferenceCantBeTold
-//if (numMarkers == NumberOfMutationMarkers - 1)
-//numMarkers = NumberOfMutationMarkers;
-//#endif
-//
-//return
-//numMarkers;
-//}
-
-
 
 Bot::Bot(int X, int Y, int Energy, t_object &prototype) : x(X), y(Y), brain(&prototype->brain),
                                                           weight(0) {
@@ -335,7 +265,8 @@ Bot::Bot(int X, int Y, int Energy, t_object &prototype) : x(X), y(Y), brain(&pro
     energyFromKills = 0;
     dnk = prototype->dnk;
     color = prototype->color;
-    if (rand() % 2 == 0) return;
+    direction = rand() %8;
+    if (rand() % 10 == 0) return;
 //    std::ostringstream mm;
 //    mm << " " << dnk.descript();
     for (auto i = 0; i <= dnk.mutability_body; i++) dnk.mutate(1);
@@ -343,7 +274,7 @@ Bot::Bot(int X, int Y, int Energy, t_object &prototype) : x(X), y(Y), brain(&pro
     auto diff = FindKinship(prototype);
 //    mm << " |> " << dnk.descript() << "  K:" <<  diff;
 //    std::cout << mm.str() << std::endl;
-    ChangeColor((int) 255 * diff);
+    ChangeColor((int) (255.f * diff));
 }
 
 
@@ -353,6 +284,7 @@ Bot::Bot(int X, int Y, int Energy) : x(X), y(Y), weight(0) {
     fertilityDelay = FertilityDelay;
     energyFromPS = 0;
     energyFromKills = 0;
+    direction = rand() %8;
     //Randomize bot brain
     brain.Randomize();
     //Set brain to dummy brain.SetDummy();
@@ -360,33 +292,13 @@ Bot::Bot(int X, int Y, int Energy) : x(X), y(Y), weight(0) {
     RandomizeColor();
     //for (int m = 0; m < NeuronsInLayer*NumNeuronLayers; ++m)
 //    Mutate();
-    dnk.mutate(1); // TODO set sun dependency
-    dnk.mutate(1);
-    dnk.mutate(1);
-    dnk.mutate(1);
-    dnk.mutate(1);
-    dnk.mutate(1);
-    dnk.mutate(1);
+for (auto  i=0; i < 10; i++) {
+    dnk.mutate(i);
+    dnk.mutate(i);
+    dnk.mutate(i);
     Mutate();
+}
     RandomizeColor();
-}
-
-
-void Bot::GiveInitialEnergyAndMarkers() {
-//    RandomizeMarkers();
-
-    energy = MaxPossibleEnergyForABot;
-    stunned = StunAfterBirth;
-    fertilityDelay = FertilityDelay;
-    energyFromPS = 0;
-    energyFromKills = 0;
-    direction = 0;
-    RandomizeColor(); // Temporary
-}
-
-
-Neuron *Bot::GetNeuralNet() {
-    return (Neuron *) brain.allNeurons;
 }
 
 //BotNeuralNet *Bot::GetBrain() {
@@ -404,10 +316,10 @@ float Bot::FindKinship(t_object &stranger) const {
 
 DNK &DNK::operator=(const DNK &dnk2) {
     max_energy = dnk2.max_energy;
-    protetction_front = dnk2.protetction_front;
-    protetction_others = dnk2.protetction_others;
+    def_front = dnk2.def_front;
+    def_all = dnk2.def_all;
     minerals_ability = dnk2.minerals_ability;
-    atack_ability = dnk2.atack_ability;
+    kill_ability = dnk2.kill_ability;
     ps_ability = dnk2.ps_ability;
 }
 
@@ -422,15 +334,15 @@ void DNK::mutate(int d) {
             return;
         }
         case 1: {
-            protetction_front = std::max(0, protetction_front + diff);
+            def_front = std::max(0, def_front + diff);
             return;
         }
         case 02: {
-            protetction_others = std::max(0, protetction_others + diff);
+            def_all = std::max(0, def_all + diff);
             return;
         }
         case 3: {
-            atack_ability = std::max(0, atack_ability + diff);
+            kill_ability = std::max(0, kill_ability + diff);
             return;
         }
         case 4: {
@@ -458,10 +370,10 @@ void DNK::mutate(int d) {
 
 }
 
-std::string DNK::descript() const {
+[[maybe_unused]] std::string DNK::descript() const {
     std::ostringstream out;
-    out << "ME:" << max_energy << " PF:" << protetction_front
-        << " PO:" << protetction_others << " A:" << atack_ability
+    out << "ME:" << max_energy << " PF:" << def_front
+        << " PO:" << def_all << " A:" << kill_ability
         << " MA" << minerals_ability << " PS:" << ps_ability
         << " M:" << mutability_body << "/" << mutability_brain;
     return out.str();
