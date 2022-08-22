@@ -43,10 +43,7 @@ typedef unsigned char byte;
 #define RandomVal(max) (rand() % (max))
 
 //Roll for probability (chance in percents)
-#define RandomPercent(val) ((rand()%1000)>=(1000 - (val * 10)))
-
-//Roll for probability (chance in 1/10 percent)
-#define RandomPercentX10(val) ((rand()%1000)>=(1000 - (val)))
+#define RandomPercent(val) ((rand()%1000)>=(1000 - ((val) * 10)))
 
 //Simple cycle
-#define repeat(times) for(int i=0;i<times;++i)
+#define repeat(times) for(int i=0;i<(times);++i)

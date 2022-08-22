@@ -42,14 +42,6 @@ void Pause()
 	simulate = !simulate;
 }
 
-void ClearChart()
-{
-	memset(populationChartData, 0, sizeof(populationChartData));
-
-	chart_numValues = 0;
-	chart_shift = 0;
-	chart_currentPosition = 0;
-}
 
 void AddToChart(float newVal)
 {
@@ -69,43 +61,6 @@ void AddToChart(float newVal)
 			++chart_currentPosition;
 	}
 
-}
-
-void Deselect()
-{
-	selection = false;
-	selectedObject = NULL;
-	showBrain = false;
-}
-
-
-void ClearConsole()
-{
-	consoleText[0] = '\0';
-}
-
-//This is temporary (костыли господа)
-void ConsoleInput(const char* str, bool newLine)
-{
-//	if (strlen(consoleText) > (ConsoleCharLength/2 - 50))
-//		ClearConsole();
-//
-//	strcpy_s(consoleText + strlen(consoleText), ConsoleCharLength / 2, str);
-//
-//	if (newLine)
-//		ConsoleInput("\r\n");
-}
-
-void ConsoleInput(int num, bool newLine)
-{
-//
-//	if (strlen(consoleText) > (ConsoleCharLength / 2 - 50))
-//		ClearConsole();
-//
-//	sprintf_s(consoleText + strlen(consoleText), ConsoleCharLength / 2, "%i", num);
-//
-//	if(newLine)
-//		ConsoleInput("\r\n");
 }
 
 void LoadFilenames()
@@ -225,19 +180,18 @@ int main(int argc, char *argv[]){
     LoadFilenames();
 
 
-    int secondTickCount = 0;
-    int simulationSpeed = 0;
-    int changeSeasonCounter = 0;
-
-    int interval = SimTickIntervalAtStart;
-    int skipFrames = SkipFramesAtStart;
-    int skipping = 0;
-    int skippingRender = 0;
-    RenderTypes renderType = RenderTypeAtStart;
-    MouseFunction mouseFunc = mouse_select;
-
-    int mouseX, mouseY;
-    int buttons;
+//    int secondTickCount = 0;
+//    int simulationSpeed = 0;
+//    int changeSeasonCounter = 0;
+//
+//    int interval = SimTickIntervalAtStart;
+//    int skipFrames = SkipFramesAtStart;
+//    int skipping = 0;
+//    int skippingRender = 0;
+//    RenderTypes renderType = RenderTypeAtStart;
+//
+//    int mouseX, mouseY;
+//    int buttons;
 //    std::cout << " " << m++;
     frame_type frame(FieldX * 2 + FieldCellsWidth * FieldCellSize, FieldY * 2 + FieldHeight, CV_8UC3);
     const char* wind_name = "Filed";

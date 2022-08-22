@@ -12,7 +12,11 @@ struct BrainInput
 	vision = 0.0f,
 	isRelative = 0.0f,
 	rotation = 0.0f,
-	height = 0.0f;
+	goal_energy = 0.0f;
+    // TODO add what he sees
+    // TODO what the terrain hi is
+    // TODO what the terrain hi wants to be
+    // TODO Energy levels
 };
 
 
@@ -34,19 +38,15 @@ union BrainOutput
 };
 
 
-
-
-
-
 class BotNeuralNet
 {
 
 private:
 
 	//Activation functions
-	float Activation(float value);
-	float PlusMinusActivation(float value);
-	float RadialBasisActivation(float value);
+	static float Activation(float value);
+	static float PlusMinusActivation(float value);
+	static float RadialBasisActivation(float value);
 
 	//Clear memory
 	void ClearMemory();
@@ -64,7 +64,7 @@ public:
 
 	//Constructors
 	BotNeuralNet();
-	BotNeuralNet(BotNeuralNet* prototype);
+	explicit BotNeuralNet(BotNeuralNet* prototype);
 
 	//Clear all values
 	void Clear();
