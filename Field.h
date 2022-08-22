@@ -12,7 +12,17 @@ const int tbb_step{3};
 
 enum RenderTypes
 {
-    natural, predators, energy,
+    natural, predators, energy, sun_energy,
+    // DNK data
+    max_energy,
+    def_front,
+    def_all,
+    kill_ability,
+    minerals_ability,
+    ps_ability,
+    mutability_body,
+    mutability_brain,
+    max_life_time,
 };
 
 enum Terrain {
@@ -28,6 +38,8 @@ class Field
 
     tbb_vec_obj boots;
     Terrain terrain[FieldCellsWidth][FieldCellsHeight];
+    int sun_power[FieldCellsWidth][FieldCellsHeight];
+    int tmp_buf2draw[FieldCellsWidth][FieldCellsHeight];
     std::vector<int> sequence;
     frame_type BGround{FieldX * 2 + FieldCellsWidth * FieldCellSize, FieldY * 2 + FieldHeight, CV_8UC3};
     //Needed to calculate number of active objects (calculated on every frame)
@@ -50,8 +62,6 @@ public:
     bool AddObject(t_object &obj);
 
     //Tick function for every object,
-    //Returns true if object was destroyed
-//    [[maybe_unused]] void ObjectTick(int &i_xy);
     void ObjectTick1(int &i_xy);
     void ObjectTick2(int &i_xy);
 
@@ -66,26 +76,30 @@ public:
     static bool IsInBounds(int X, int Y);
     static bool IsInBounds(oPoint &p);
 
-
-    //This function is needed to tile world horizontally (change X = -1 to X = FieldCellsWidth etc.)
-    static int ValidateX(int X);
-
     //Spawn group of random bots
     void SpawnControlGroup();
-
 
     //Create field
     Field();
 
     void NextView();
 
-    void Annotate(frame_type& image) const;
+    void Annotate(frame_type &image, const std::vector<std::string> &extra, const cv::Scalar& color) const;
 
-    int GetSunEnergy(int x, int y) const;
+    [[nodiscard]] int GetSunEnergy(int x, int y) const;
+
+    [[nodiscard]] int CalcSunEnergy(int x, int y) const;
+
+    // show the sun power
+    static int drawAnyGrayScale(frame_type& image, int (*data)[FieldCellsWidth][FieldCellsHeight]);
+
+    void updateSunEnergy();
 
     void ShowMutations();
 
     bool AddObject(t_object &obj, int coord);
+
+    void fill_buf_2_draw(RenderTypes val);
 };
 
 

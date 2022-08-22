@@ -144,7 +144,7 @@ int Bot::tick() {
     energy -= EveryTickEnergyPenalty;
     // penalty from DNK
     const int pen_factor = 1;
-    energy -= dnk.def_front * pen_factor;
+    energy -= dnk.def_front * pen_factor / 2;
     energy -= dnk.def_all * pen_factor;
     energy -= dnk.minerals_ability * pen_factor;
     energy -= dnk.kill_ability * pen_factor;

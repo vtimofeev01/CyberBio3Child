@@ -47,134 +47,6 @@ bool Field::AddObject(t_object &obj, int coord) {
     return true;
 }
 
-//Tick function for every object,
-//Returns true if object was destroyed
-//[[maybe_unused]] void Field::ObjectTick(int &i_xy) {
-//    assert(boots[i_xy] != nullptr);
-//    int t = boots[i_xy]->tick();
-//    if (t == 2) { return; }
-//
-//    //Fill brain input structure
-//    BrainInput b_input;
-//    auto lookAt = boots[i_xy]->GetDirection();
-//
-//    //Desired destination,
-//    //that is what bot is looking at
-//    int cx = boots[i_xy]->x + lookAt.x;
-//    int cy = boots[i_xy]->y + lookAt.y;
-//
-//    cx = ValidateX(cx);
-//
-//    //If destination is out of bounds
-//    if (!IsInBounds(cx, cy)) {
-//        b_input.vision = 1.0f; //1 if unpassable
-//    } else {
-//        auto cxy = XY(cx, cy);
-//        //Destination cell is empty
-//
-//        if (boots[cxy] == nullptr) {
-//            //0 if empty
-//            b_input.vision = 0.0f;
-//        } else {
-//            //0.5 if someone in that cell
-//            b_input.vision = 0.5f;
-//
-//            //Calculate how close they are as relatives, based on mutation markers
-////            b_input.isRelative = 1.0f - (boots[cxy]->FindKinship(boots[i_xy]) * 1.0f) /
-////                                        (NumberOfMutationMarkers * 1.0f);
-//            b_input.isRelative = boots[cxy]->dnk.distance(boots[i_xy]->dnk);
-//        }
-//    }
-//    assert(boots[i_xy] != nullptr);
-//    //Bot brain does its stuff
-//    auto bots_ideas = boots[i_xy]->think(b_input);
-//    assert(boots[i_xy] != nullptr);
-//    //Multiply first
-//    for (int b = 0; b < bots_ideas.divide; ++b) {
-//        //Dies if energy is too low
-//        if (boots[i_xy]->energy <= EnergyPassedToAChild + GiveBirthCost) {
-//            boots[i_xy] = nullptr;
-//            return;
-//        } else {
-//            //Gives birth otherwise
-//            auto freeSpace = FindFreeNeighbourCell(boots[i_xy]->x, boots[i_xy]->y);
-//            if (freeSpace.x != -1) {
-//                boots[i_xy]->TakeEnergy(EnergyPassedToAChild + GiveBirthCost);
-//                auto mutation = RandomPercent(MutationChancePercent);
-//                auto val = MAKE_TObj(freeSpace.x, freeSpace.y,
-//                                     EnergyPassedToAChild,
-//                                     boots[i_xy]);
-//                AddObject(val);
-//                return;
-//            }
-//        }
-//    }
-//    assert(boots[i_xy] != nullptr);
-//    //Then attack
-//    if (bots_ideas.attack) {
-//        //If dies of low energy
-//        if (boots[i_xy]->TakeEnergy(AttackCost)) {
-//            boots[boots[i_xy]->coord()] = nullptr;
-//            return;
-//        } else {
-//            //Get direction of attack
-//            auto dir = boots[i_xy]->GetDirection();
-//            cx = ValidateX(boots[i_xy]->x + dir.x);
-//            cy = boots[i_xy]->y + dir.y;
-//            if (IsInBounds(cx, cy)) {
-//                //If there is an object
-//                auto cxy = XY(cx, cy);
-//                if (boots[cxy]) {
-//                    //Kill an object
-//                    boots[i_xy]->GiveEnergy(boots[cxy]->energy, kills);
-//                    boots[cxy] = nullptr;
-//                } else { // when the attacked escapes
-//                    // only stay and cry
-//                }
-//            }
-//        }
-//    } else {
-//        //Rotate after
-//        if (bots_ideas.rotate != 0) {
-//            //If dies of low energy
-//            if (boots[i_xy]->TakeEnergy(RotateCost)) {
-//                boots[i_xy] = nullptr;
-//                return;
-//            }
-//
-//            boots[i_xy]->Rotate(bots_ideas.rotate);
-//        }
-//
-//        //Move
-//        if (bots_ideas.move) {
-//            if (boots[i_xy]->TakeEnergy(MoveCost)) {
-//                boots[i_xy] = nullptr;
-//                return;
-//            }
-//
-//            auto dir = boots[i_xy]->GetDirection();
-//
-//            cx = boots[i_xy]->x + dir.x;
-//            cy = boots[i_xy]->y + dir.y;
-//            cy = std::max(cy, 0);
-//            cy = std::min(cy, FieldCellsHeight - 1);
-//
-//            cx = ValidateX(cx);
-//
-////            if ((abs(cx - TEMP_x1) > 1) && (abs(cx - TEMP_x1) < 190)) {
-////                TEMP_x1 = bot->x;
-////            }
-//
-//            boots[XY(cx, cy)] = std::move(boots[i_xy]);
-//        }
-//            //Photosynthesis
-//        else if (bots_ideas.photosynthesis) {
-//            boots[i_xy]->GiveEnergy(GetSunEnergy(boots[i_xy]->x, boots[i_xy]->y), PS);
-//        }
-//
-//    }
-//}
-
 void Field::ObjectTick1(int &i_xy) {
     assert(boots[i_xy] != nullptr);
     auto [i_x, i_y] = XYr(i_xy);
@@ -204,13 +76,11 @@ void Field::ObjectTick1(int &i_xy) {
             b_input.isRelative = 0.f;
         } else {
             int lvl;
-            if (boots[cxy] != nullptr)
-                lvl = boots[cxy]->energy;
+            assert(boots[cxy] != nullptr);
+            lvl = boots[cxy]->energy;
             //0.5 if someone in that cell
             b_input.vision = 0.5f;
-            if (boots[cxy] != nullptr)
-                b_input.isRelative = boots[cxy]->FindKinship(boots[i_xy]);
-
+            b_input.isRelative = boots[cxy]->FindKinship(boots[i_xy]);
             b_input.goal_energy = static_cast<float>(lvl);
         }
     }
@@ -255,8 +125,17 @@ void Field::ObjectTick2(int &i_xy) {
         auto cxy = XY(cx, cy);
         assert(cxy != i_xy);
         if (IsInBounds(cx, cy) && boots[cxy] != nullptr) {
-            auto ad_diff = boots[cxy]->dnk.def_all - boots[i_xy]->dnk.kill_ability;
-            auto ad_summ = boots[cxy]->dnk.def_all + boots[i_xy]->dnk.kill_ability;
+            auto defense = boots[cxy]->dnk.def_all;
+
+            // see where looks the attacked
+            auto cxy_directon = boots[cxy]->GetDirection();
+            auto cx_d_x = cx + cxy_directon.x;
+            auto cx_d_y = cy + cxy_directon.y;
+            if ((cx_d_x == i_x) && (cx_d_y == i_y)) defense += boots[cxy]->dnk.def_front;
+
+
+            auto ad_diff = defense - boots[i_xy]->dnk.kill_ability;
+            auto ad_summ = defense + boots[i_xy]->dnk.kill_ability;
             auto attack_cost = AttackCost * ad_diff / (ad_summ + 2) + AttackCost;
             if (boots[i_xy]->energy > attack_cost) { //Kill an object
                 boots[i_xy]->stat_kills++;
@@ -287,7 +166,8 @@ void Field::ObjectTick2(int &i_xy) {
 
     assert(boots[i_xy] != nullptr);
     if (bots_ideas.move) { // TODO make move cost on weight and terrain
-        if (boots[i_xy]->energy > MoveCost) {
+        auto mc = terrain[i_x][i_y] == Terrain::eart?MoveCost:MoveCost/2;
+        if (boots[i_xy]->energy > mc) {
             auto dir = boots[i_xy]->GetDirection();
             auto cx = i_x + dir.x;
             auto cy = i_y + dir.y;
@@ -308,6 +188,7 @@ void Field::ObjectTick2(int &i_xy) {
 //tick function for single threaded build
 inline void Field::tick_single_thread() {
     objectsTotal = 0;
+    updateSunEnergy();
     auto f1 = [&](int i_xy) {
         if (boots[i_xy]) {
             if (boots[i_xy]->tick() == 1) {
@@ -365,6 +246,7 @@ void Field::tick(int thisFrame) {
 //Draw simulation field with all its objects
 void Field::draw(frame_type &image) {
     BGround.copyTo(image);
+    std::vector<std::string> extra_data;
     auto f = [&](int m_ix) {
         if (boots[m_ix]) {
             //Draw function switch, based on selected render type
@@ -381,8 +263,124 @@ void Field::draw(frame_type &image) {
             }
         }
     };
-    tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
-    Annotate(image);
+
+    switch (render) {
+
+        case natural: {
+            tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
+            break;
+        }
+        case predators: {
+            tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
+            break;
+        }
+        case energy: {
+            tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
+            break;
+        }
+        case sun_energy:
+        {
+            auto max_val = drawAnyGrayScale(image, &sun_power);
+//            std::cout << max_val << std::endl;
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("SUN");
+            extra_data.emplace_back(v.str());
+        }
+            break;
+        case max_energy:
+        {
+            fill_buf_2_draw(max_energy);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("max_energy");
+            extra_data.emplace_back(v.str());
+        }
+            break;
+        case def_front:
+        {
+            fill_buf_2_draw(def_front);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("def_front");
+            extra_data.emplace_back(v.str());
+        }
+            break;
+        case def_all:
+        {
+            fill_buf_2_draw(def_all);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("def_all");
+            extra_data.emplace_back(v.str());
+        }
+            break;
+        case kill_ability:
+        {
+            fill_buf_2_draw(kill_ability);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("kill_ability");
+            extra_data.emplace_back(v.str());
+        }
+            break;
+        case minerals_ability:
+        {
+            fill_buf_2_draw(minerals_ability);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("minerals_ability");
+            extra_data.emplace_back(v.str());
+        }
+            break;
+        case ps_ability:
+        {
+            fill_buf_2_draw(ps_ability);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("ps_ability");
+            extra_data.emplace_back(v.str());
+        }
+            break;
+        case mutability_body:
+        {
+            fill_buf_2_draw(mutability_body);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("mutability_body");
+            extra_data.emplace_back(v.str());
+        }
+            break;
+        case mutability_brain:
+        {
+            fill_buf_2_draw(mutability_brain);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("mutability_brain");
+            extra_data.emplace_back(v.str());
+        }
+            break;
+        case max_life_time:
+        {
+            fill_buf_2_draw(max_life_time);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("max_life_time");
+            extra_data.emplace_back(v.str());
+        }
+            break;
+    }
+
+    Annotate(image, extra_data, cv::Scalar(0, 0, 255));
 }
 
 //Is cell out if bounds?
@@ -393,17 +391,6 @@ bool Field::IsInBounds(int X, int Y) {
 bool Field::IsInBounds(oPoint &p) {
     return IsInBounds(p.x, p.y);
 }
-
-//This function is needed to tile world horizontally (change X = -1 to X = FieldCellsWidth etc.)
-int Field::ValidateX(int X) {
-    if (X < 0) {
-        return (X % FieldCellsWidth) + FieldCellsWidth;
-    } else if (X >= FieldCellsWidth) {
-        return (X % FieldCellsWidth);
-    }
-    return X;
-}
-
 
 //Spawn group of random bots
 void Field::SpawnControlGroup() {
@@ -446,9 +433,9 @@ Field::Field() {
     for (auto x = 0; x < FieldCellsWidth; x++)
         for (auto y = 0; y < FieldCellsHeight; y++) {
             if (img.at<uchar>(x, y) > 127) {
-                terrain[x][y] = Terrain::eart;
+                terrain[y][x] = Terrain::eart;
             } else {
-                terrain[x][y] = Terrain::sea;
+                terrain[y][x] = Terrain::sea;
             }
         }
 
@@ -457,10 +444,20 @@ Field::Field() {
 void Field::NextView() {
     if (render == RenderTypes::natural) render = RenderTypes::energy;
     else if (render == RenderTypes::energy) render = RenderTypes::predators;
-    else if (render == RenderTypes::predators) render = RenderTypes::natural;
+    else if (render == RenderTypes::predators) render = RenderTypes::sun_energy;
+    else if (render == RenderTypes::sun_energy) render = RenderTypes::max_energy;
+    else if (render == RenderTypes::max_energy) render = RenderTypes::def_front;
+    else if (render == RenderTypes::def_front) render = RenderTypes::def_all;
+    else if (render == RenderTypes::def_all) render = RenderTypes::kill_ability;
+    else if (render == RenderTypes::kill_ability) render = RenderTypes::minerals_ability;
+    else if (render == RenderTypes::minerals_ability) render = RenderTypes::ps_ability;
+    else if (render == RenderTypes::ps_ability) render = RenderTypes::mutability_body;
+    else if (render == RenderTypes::mutability_body) render = RenderTypes::mutability_brain;
+    else if (render == RenderTypes::mutability_brain) render = RenderTypes::max_life_time;
+    else if (render == RenderTypes::max_life_time) render = RenderTypes::natural;
 }
 
-void Field::Annotate(frame_type &image) const {
+void Field::Annotate(frame_type &image, const std::vector<std::string> &extra, const cv::Scalar& color) const {
 
     std::vector<std::string> lines;
     if (render == RenderTypes::natural) lines.emplace_back("view: natural");
@@ -469,6 +466,7 @@ void Field::Annotate(frame_type &image) const {
     std::ostringstream stringStream;
     stringStream << "gen:" << frame_number;
     lines.emplace_back(stringStream.str());
+    for (auto &s: extra) lines.push_back(s);
 
     int x{FieldX}, y{FieldY}, baseline{0};
     auto font = cv::FONT_HERSHEY_SIMPLEX;
@@ -479,11 +477,11 @@ void Field::Annotate(frame_type &image) const {
         y += textSize.height + font_thickness;
         auto text_org = cv::Point(x, y);
         cv::putText(image, l, text_org, font, font_size,
-                    cv::Scalar(255, 100, 200), font_thickness, 8);
+                    color, font_thickness, 8);
     }
 }
 
-int Field::GetSunEnergy(int x, int y) const {
+int Field::CalcSunEnergy(int x, int y) const {
     auto day_part = (int) (frame_number % p_24) * 4 / p_24;
     auto year_part = (int) (frame_number % p_year) * 4 / p_year;
     auto region = y / Region_Polar;
@@ -539,6 +537,93 @@ void Field::ShowMutations() {
 //            }
 //        }
 
+}
+
+void Field::updateSunEnergy() {
+    for (auto x = 0; x < FieldCellsWidth; x++)
+        for (auto y = 0; y < FieldCellsHeight; y++)
+            sun_power[x][y] = CalcSunEnergy(x, y);
+
+}
+
+int Field::GetSunEnergy(int x, int y) const {
+    return sun_power[x][y];
+}
+
+int Field::drawAnyGrayScale(frame_type &image, int (*data)[FieldCellsWidth][FieldCellsHeight]) {
+
+    int max_val{-10000};
+    int min_val{100000000};
+    for (auto x = 0; x < FieldCellsWidth; x++)
+        for (auto y = 0; y < FieldCellsHeight; y++) {
+            max_val = std::max(max_val, (*data)[x][y]);
+            min_val = std::min(min_val, (*data)[x][y]);
+        }
+    int c_;
+    for (auto x = 0; x < FieldCellsWidth; x++)
+        for (auto y = 0; y < FieldCellsHeight; y++) {
+            c_ = (*data)[x][y] * 255 / (max_val + 1);
+            cv::rectangle(image,
+                          cv::Point(FieldX + x * FieldCellSize + 1, FieldY + y * FieldCellSize + 1),
+                          cv::Point(FieldX + x * FieldCellSize + FieldCellSize - 1,
+                                    FieldY + y * FieldCellSize + FieldCellSize - 1),
+                          cv::Scalar(c_, c_, c_),
+                          -1,
+                          cv::LINE_8, 0);
+        }
+    return max_val;
+
+}
+
+void Field::fill_buf_2_draw(RenderTypes val) {
+    int t_val, o_val;
+    for (auto x = 0; x < FieldCellsWidth; x++)
+        for (auto y = 0; y < FieldCellsHeight; y++)
+        {
+            t_val = XY(x, y);
+            if (boots[t_val] == nullptr) { tmp_buf2draw[x][y] = 0; }
+            else {
+                switch (val) {
+                    case natural:
+                        break;
+                    case predators:
+                        break;
+                    case energy:
+                        break;
+                    case sun_energy:
+                        break;
+                    case max_energy:
+                        o_val = boots[t_val]->dnk.max_energy;
+                        break;
+                    case def_front:
+                        o_val = boots[t_val]->dnk.def_front;
+                        break;
+                    case def_all:
+                        o_val = boots[t_val]->dnk.def_all;
+                        break;
+                    case kill_ability:
+                        o_val = boots[t_val]->dnk.kill_ability;
+                        break;
+                    case minerals_ability:
+                        o_val = boots[t_val]->dnk.minerals_ability;
+                        break;
+                    case ps_ability:
+                        o_val = boots[t_val]->dnk.ps_ability;
+                        break;
+                    case mutability_body:
+                        o_val = boots[t_val]->dnk.mutability_body;
+                        break;
+                    case mutability_brain:
+                        o_val = boots[t_val]->dnk.mutability_brain;
+                        break;
+                    case max_life_time:
+                        o_val = boots[t_val]->dnk.max_life_time;
+                        break;
+                }
+                tmp_buf2draw[x][y] = o_val;
+            }
+
+        }
 }
 
 
