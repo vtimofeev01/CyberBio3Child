@@ -1,7 +1,7 @@
 #include <tbb/parallel_for.h>
 #include "Field.h"
 #include "MyTypes.h"
-
+#include <math.h>
 
 oPoint Field::FindFreeNeighbourCell(int X, int Y) {
     //If cell itself is empty
@@ -568,10 +568,31 @@ void Field::ShowMutations() {
 }
 
 void Field::updateSunEnergy() {
-    for (auto x = 0; x < FieldCellsWidth; x++)
-        for (auto y = 0; y < FieldCellsHeight; y++)
-            sun_power[x][y] = CalcSunEnergy(x, y);
+    const float deg_up = 80.f;
+    const float deg_low = 10.f;
+    const float deg_one = (deg_up - deg_low) / FieldCellsHeight;
 
+    const float deg_earth_axe = 23.f;
+    const float deg_earth_axe_per_day = 2.f * deg_earth_axe / p_half_year;
+
+    const auto gra_to_rad = 3.14159265f/180;
+
+    auto day_of_year = static_cast<int>(frame_number % p_year);
+    auto deg_cur_axe = deg_earth_axe - deg_earth_axe_per_day * std::abs(day_of_year - p_half_year);
+//    std::cout << "deg_cur_axe:" << deg_cur_axe;
+
+    for (auto y = 0; y < FieldCellsHeight; y++) {
+        auto terr_deg = deg_cur_axe + deg_low + deg_one * static_cast<float>(FieldCellsHeight - y);
+        float coef;
+        if (terr_deg > 90.f) {coef = 0;}
+        else {
+            coef = std::cos(terr_deg * gra_to_rad);
+        }
+        int sp = static_cast<int>(PhotosynthesisReward_Summer * coef);
+        for (auto x = 0; x < FieldCellsWidth; x++)
+//            sun_power[x][y] = CalcSunEnergy(x, y);
+            sun_power[x][y] = terrain[x][y] == Terrain::earth ? sp:sp/2;
+    }
 }
 
 int Field::GetSunEnergy(int x, int y) const {

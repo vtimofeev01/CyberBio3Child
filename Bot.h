@@ -116,9 +116,6 @@ public:
     unsigned long stat_birth = 0;
     unsigned long stat_moves = 0;
 
-
-
-
     int direction{0};
 public:
 

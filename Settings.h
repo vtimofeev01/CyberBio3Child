@@ -31,11 +31,6 @@ const cv::Scalar OceanColor{255, 155, 155};
 
 
 #define RenderTypeAtStart predators
-//-----------------------------------------------------------------
-#define SimTickIntervalAtStart 0
-#define SkipFramesAtStart 10
-
-#define StartOnPause
 
 #define ControlGroupSize 5000
 //-----------------------------------------------------------------
@@ -43,6 +38,7 @@ const cv::Scalar OceanColor{255, 155, 155};
 const int p_24{4};
 
 const int p_year{356};
+const int p_half_year{p_year / 2};
 const int MaxBotLifetime{5 * p_year};
 
 const int UE{10}; // Energy Unit
