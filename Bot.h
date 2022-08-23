@@ -22,7 +22,8 @@ const oPoint Rotations[] =
 enum EnergySource {
     PS,
     kills,
-    mineral
+    mineral,
+    ES_garbage,
 };
 class Bot;
 //using t_object = Bot;
@@ -111,6 +112,7 @@ public:
     unsigned long energyFromPS = 0;
     unsigned long energyFromKills = 0;
     unsigned long energyFromMinerals = 0;
+    unsigned long energyFromOrganic = 0;
 
     unsigned long stat_steps = 0;
     unsigned long stat_kills = 0;

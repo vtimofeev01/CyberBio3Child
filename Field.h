@@ -10,24 +10,6 @@ const cv::Scalar color_earth{128, 194, 178};
 const cv::Scalar color_sea{148, 105, 0};
 const int tbb_step{3};
 
-enum RenderTypes
-{
-    natural, predators, energy, sun_energy,
-    // DNK data
-    max_energy,
-    def_front,
-    def_all,
-    kill_ability,
-    minerals_ability,
-    ps_ability,
-    mutability_body,
-    mutability_brain,
-    max_life_time,
-};
-
-enum Terrain {
-    eart, sea
-};
 
 //using tbb_vec_obj = tbb::concurrent_vector<t_object>;
 using tbb_vec_obj = std::vector<t_object>;
@@ -40,6 +22,7 @@ class Field
     Terrain terrain[FieldCellsWidth][FieldCellsHeight];
     int sun_power[FieldCellsWidth][FieldCellsHeight];
     int tmp_buf2draw[FieldCellsWidth][FieldCellsHeight];
+    int organic[FieldCellsWidth][FieldCellsHeight];
     std::vector<int> sequence;
     frame_type BGround{FieldX * 2 + FieldCellsWidth * FieldCellSize, FieldY * 2 + FieldHeight, CV_8UC3};
     //Needed to calculate number of active objects (calculated on every frame)

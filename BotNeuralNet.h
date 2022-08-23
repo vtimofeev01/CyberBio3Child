@@ -1,6 +1,4 @@
 #pragma once
-
-
 #include "Neuron.h"
 
 
@@ -13,6 +11,9 @@ struct BrainInput
 	isRelative = 0.0f,
 	rotation = 0.0f,
 	goal_energy = 0.0f;
+    Terrain local_terrain = Terrain::earth;
+    Terrain direct_terrain = Terrain::earth;
+
     // TODO add what he sees
     // TODO what the terrain hi is
     // TODO what the terrain hi wants to be

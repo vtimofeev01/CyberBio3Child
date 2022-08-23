@@ -240,6 +240,8 @@ void Bot::GiveEnergy(int num, EnergySource src) {
         energyFromKills += num;
     } else if (src == mineral) {
         energyFromMinerals += num;
+    }else if (src == ES_garbage) {
+        energyFromOrganic += num;
     }
 }
 

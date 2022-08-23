@@ -55,6 +55,7 @@ void Field::ObjectTick1(int &i_xy) {
 
     //Fill brain input structure
     BrainInput b_input;
+
     auto lookAt = boots[i_xy]->GetDirection();
     b_input.energy = static_cast<float>(boots[i_xy]->energy);
     b_input.rotation = static_cast<float>(boots[i_xy]->direction);
@@ -62,6 +63,8 @@ void Field::ObjectTick1(int &i_xy) {
     //that is what bot is looking at
     int cx = i_x + lookAt.x;
     int cy = i_y + lookAt.y;
+    b_input.local_terrain = terrain[i_x][i_y];
+    b_input.direct_terrain = terrain[cx][cy];
 
 //    cx = ValidateX(cx);
 
@@ -166,7 +169,7 @@ void Field::ObjectTick2(int &i_xy) {
 
     assert(boots[i_xy] != nullptr);
     if (bots_ideas.move) { // TODO make move cost on weight and terrain
-        auto mc = terrain[i_x][i_y] == Terrain::eart?MoveCost:MoveCost/2;
+        auto mc = terrain[i_x][i_y] == Terrain::earth ? MoveCost : MoveCost / 2;
         if (boots[i_xy]->energy > mc) {
             auto dir = boots[i_xy]->GetDirection();
             auto cx = i_x + dir.x;
@@ -191,15 +194,24 @@ inline void Field::tick_single_thread() {
     updateSunEnergy();
     auto f1 = [&](int i_xy) {
         if (boots[i_xy]) {
+            auto [x_, y_] = XYr(i_xy);
             if (boots[i_xy]->tick() == 1) {
+                organic[x_][y_] = GiveBirthCost;
                 // too old or expired
                 boots[i_xy] = nullptr;
                 return;
             }
-            auto [x_, y_] = XYr(i_xy);
-            boots[i_xy]->GiveEnergy(terrain[x_][y_] == Terrain::eart ?
+
+            boots[i_xy]->GiveEnergy(terrain[x_][y_] == Terrain::earth ?
                                     FoodbaseMineralsTerrain : FoodbaseMineralsSea,
                                     EnergySource::mineral);
+            auto till_limit = boots[i_xy]->dnk.max_energy - boots[i_xy]->energy;
+            auto to_take = std::min(till_limit, organic[x_][y_]);
+            if (to_take) {
+                boots[i_xy]->GiveEnergy(to_take, EnergySource::ES_garbage);
+                organic[x_][y_] -= to_take;
+                assert(organic[x_][y_] >= 0);
+            }
             ObjectTick1(i_xy);
         }
     };
@@ -378,6 +390,16 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
+        case ::garb:
+        {
+            fill_buf_2_draw(garb);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("Garbage");
+            extra_data.emplace_back(v.str());
+        }
+            break;
     }
 
     Annotate(image, extra_data, cv::Scalar(0, 0, 255));
@@ -432,8 +454,9 @@ Field::Field() {
     cv::resize(sBGround, BGround, cv::Size(FieldWidth, FieldHeight));
     for (auto x = 0; x < FieldCellsWidth; x++)
         for (auto y = 0; y < FieldCellsHeight; y++) {
+            organic[x][y] = 0;
             if (img.at<uchar>(x, y) > 127) {
-                terrain[y][x] = Terrain::eart;
+                terrain[y][x] = Terrain::earth;
             } else {
                 terrain[y][x] = Terrain::sea;
             }
@@ -454,7 +477,8 @@ void Field::NextView() {
     else if (render == RenderTypes::ps_ability) render = RenderTypes::mutability_body;
     else if (render == RenderTypes::mutability_body) render = RenderTypes::mutability_brain;
     else if (render == RenderTypes::mutability_brain) render = RenderTypes::max_life_time;
-    else if (render == RenderTypes::max_life_time) render = RenderTypes::natural;
+    else if (render == RenderTypes::max_life_time) render = RenderTypes::garb;
+    else if (render == RenderTypes::garb) render = RenderTypes::natural;
 }
 
 void Field::Annotate(frame_type &image, const std::vector<std::string> &extra, const cv::Scalar& color) const {
@@ -618,6 +642,9 @@ void Field::fill_buf_2_draw(RenderTypes val) {
                         break;
                     case max_life_time:
                         o_val = boots[t_val]->dnk.max_life_time;
+                        break;
+                    case garb:
+                        o_val = organic[x][y];
                         break;
                 }
                 tmp_buf2draw[x][y] = o_val;

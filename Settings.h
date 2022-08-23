@@ -14,7 +14,7 @@ const cv::Scalar FieldBackgroundColor{255, 255, 255};
 #define FieldCellsHeight 192
 auto XY = [](int x, int y) {return x * FieldCellsWidth + y;};
 auto XYr = [](int xy) {return std::tuple(xy / FieldCellsWidth, xy % FieldCellsWidth);};
-#define FieldCellSize 5
+#define FieldCellSize 3
 #define FieldWidth FieldCellSize*FieldCellsWidth
 #define FieldHeight FieldCellSize*FieldCellsHeight
 
@@ -79,7 +79,7 @@ const int GiveBirthCost{10 * UE};
 #define FilenameMaxLen 50
 //-----------------------------------------------------------------
 //Neural nets
-#define NeuronsInLayer 5
+#define NeuronsInLayer 7
 #define NumNeuronLayers 6
 #define NeuronOutputLayerIndex (NumNeuronLayers-1)
 #define NeuronInputLayerIndex 0
@@ -102,3 +102,24 @@ const int GiveBirthCost{10 * UE};
 // Population chart window
 #define ChartNumValues 1000
 //-----------------------------------------------------------------
+
+enum RenderTypes
+{
+    natural, predators, energy, sun_energy,
+    // DNK data
+    max_energy,
+    def_front,
+    def_all,
+    kill_ability,
+    minerals_ability,
+    ps_ability,
+    mutability_body,
+    mutability_brain,
+    max_life_time,
+    garb
+};
+
+enum Terrain {
+    earth, sea
+};
+
