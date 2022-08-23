@@ -42,7 +42,7 @@ public:
     unsigned long frame_number{0};
 
     //Add new object
-    bool AddObject(t_object &obj);
+    bool AddObject(t_object &obj, int _x, int _y);
 
     //Tick function for every object,
     void ObjectTick1(int &i_xy);

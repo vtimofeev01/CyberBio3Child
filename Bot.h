@@ -105,9 +105,6 @@ class Bot {
 public:
     //----------------------------------------------------------------------------------------------
 
-
-    int x;
-    int y;
     //Energy acquired from different sources
     unsigned long energyFromPS = 0;
     unsigned long energyFromKills = 0;
@@ -136,13 +133,13 @@ public:
     int tick();
 
     //Bot main draw function
-    void draw(frame_type &image);
+    void draw(frame_type &image, int _xy);
 
     //Bot draw function is energy mode
-    void drawEnergy(frame_type &image);
+    void drawEnergy(frame_type &image, int _xy);
 
     //Bot draw function is predators mode
-    void drawPredators(frame_type &image);
+    void drawPredators(frame_type &image, int _xy);
 
     //Change rotation function
     void Rotate(int dir = 1);
@@ -157,11 +154,10 @@ public:
     bool TakeEnergy(int val);
     float FindKinship(t_object &stranger) const;
 
-    Bot(int X, int Y, int Energy = 100);
+    Bot(int Energy);
     //Inherit from a parent
-    Bot(int X, int Y, int Energy, t_object &prototype);
+    Bot(int Energy, t_object &prototype);
 
-    [[nodiscard]] int coord() const;
 
 
 };

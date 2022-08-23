@@ -121,7 +121,7 @@ BrainOutput Bot::think(BrainInput input) {
         brain.allValues[0][3] = static_cast<float>(direction) / 7.0f;
 
         //Height
-        brain.allValues[0][4] =0 ; // TODO find what to use
+        brain.allValues[0][4] = 0; // TODO find what to use
     }
 
     //Compute
@@ -157,10 +157,10 @@ int Bot::tick() {
 }
 
 
-void Bot::draw(frame_type &image) {
-
-    auto pt1 = cv::Point(FieldX + x * FieldCellSize, FieldY + y * FieldCellSize);
-    auto pt2 = cv::Point(FieldX + x * FieldCellSize + FieldCellSize, FieldY + y * FieldCellSize + FieldCellSize);
+void Bot::draw(frame_type &image, int _xy) {
+    auto [xx, yy] = XYr(_xy);
+    auto pt1 = cv::Point(FieldX + xx * FieldCellSize, FieldY + yy * FieldCellSize);
+    auto pt2 = cv::Point(FieldX + xx * FieldCellSize + FieldCellSize, FieldY + yy * FieldCellSize + FieldCellSize);
     cv::rectangle(image,
                   pt1,
                   pt2,
@@ -174,45 +174,37 @@ void Bot::draw(frame_type &image) {
 }
 
 
-void Bot::drawEnergy(frame_type &image) {
+void Bot::drawEnergy(frame_type &image, int _xy) {
     auto c_ = energy * 255 / MaxPossibleEnergyForABot;
-    cv::rectangle(image,
-                  cv::Point(FieldX + x * FieldCellSize, FieldY + y * FieldCellSize),
-                  cv::Point(FieldX + x * FieldCellSize + FieldCellSize, FieldY + y * FieldCellSize + FieldCellSize),
+    auto [xx, yy] = XYr(_xy);
+    auto pt1 = cv::Point(FieldX + xx * FieldCellSize, FieldY + yy * FieldCellSize);
+    auto pt2 = cv::Point(FieldX + xx * FieldCellSize + FieldCellSize, FieldY + yy * FieldCellSize + FieldCellSize);
+
+    cv::rectangle(image, pt1, pt2,
                   cv::Scalar(c_, c_, c_),
                   -1,
                   cv::LINE_8, 0);
 
     //Draw outlines
-    auto pt1 = cv::Point(FieldX + x * FieldCellSize, FieldY + y * FieldCellSize);
-    auto pt2 = cv::Point(FieldX + x * FieldCellSize + FieldCellSize, FieldY + y * FieldCellSize + FieldCellSize);
     drawOutlineAndHead(image, pt1, pt2);
 }
 
 
-void Bot::drawPredators(frame_type &image) {
+void Bot::drawPredators(frame_type &image, int _xy) {
     //Draw body
+    auto [xx, yy] = XYr(_xy);
     auto energySum = energyFromKills + energyFromPS + energyFromMinerals;
-    cv::Scalar color_{0, 0, 0};
-//    if (energyFromMinerals > 0)
-//        color_ = {255, 255, 255};
-//    else if (energySum < 20)
-//        color_ = {180, 180, 180};
-//    else
-    color_ = {(double) energyFromMinerals * 255.f / energySum,
-              (double) energyFromPS * 255.f / energySum,
-              (double) energyFromKills * 255.f / energySum};
+    auto pt1 = cv::Point(FieldX + xx * FieldCellSize, FieldY + yy * FieldCellSize);
+    auto pt2 = cv::Point(FieldX + xx * FieldCellSize + FieldCellSize, FieldY + yy * FieldCellSize + FieldCellSize);
 
-    cv::rectangle(image,
-                  cv::Point(FieldX + x * FieldCellSize, FieldY + y * FieldCellSize),
-                  cv::Point(FieldX + x * FieldCellSize + FieldCellSize, FieldY + y * FieldCellSize + FieldCellSize),
+    cv::Scalar color_ = {(double) energyFromMinerals * 255.f / energySum,
+                         (double) energyFromPS * 255.f / energySum,
+                         (double) energyFromKills * 255.f / energySum};
+    cv::rectangle(image, pt1, pt2,
                   color_,
                   -1,
                   cv::LINE_8, 0);
-
-//Draw outlines
-    auto pt1 = cv::Point(FieldX + x * FieldCellSize, FieldY + y * FieldCellSize);
-    auto pt2 = cv::Point(FieldX + x * FieldCellSize + FieldCellSize, FieldY + y * FieldCellSize + FieldCellSize);
+    //Draw outlines
     drawOutlineAndHead(image, pt1, pt2);
 }
 
@@ -240,7 +232,7 @@ void Bot::GiveEnergy(int num, EnergySource src) {
         energyFromKills += num;
     } else if (src == mineral) {
         energyFromMinerals += num;
-    }else if (src == ES_garbage) {
+    } else if (src == ES_garbage) {
         energyFromOrganic += num;
     }
 }
@@ -257,8 +249,8 @@ oPoint Bot::GetDirection() const {
 }
 
 
-Bot::Bot(int X, int Y, int Energy, t_object &prototype) : x(X), y(Y), brain(&prototype->brain),
-                                                          weight(0) {
+Bot::Bot(int Energy, t_object &prototype) : brain(&prototype->brain),
+                                            weight(0) {
 
     energy = Energy;
     stunned = StunAfterBirth;
@@ -267,7 +259,7 @@ Bot::Bot(int X, int Y, int Energy, t_object &prototype) : x(X), y(Y), brain(&pro
     energyFromKills = 0;
     dnk = prototype->dnk;
     color = prototype->color;
-    direction = rand() %8;
+    direction = rand() % 8;
     if (rand() % 10 == 0) return;
 //    std::ostringstream mm;
 //    mm << " " << dnk.descript();
@@ -280,13 +272,13 @@ Bot::Bot(int X, int Y, int Energy, t_object &prototype) : x(X), y(Y), brain(&pro
 }
 
 
-Bot::Bot(int X, int Y, int Energy) : x(X), y(Y), weight(0) {
+Bot::Bot(int Energy) : weight(0) {
     energy = Energy;
     stunned = StunAfterBirth;
     fertilityDelay = FertilityDelay;
     energyFromPS = 0;
     energyFromKills = 0;
-    direction = rand() %8;
+    direction = rand() % 8;
     //Randomize bot brain
     brain.Randomize();
     //Set brain to dummy brain.SetDummy();
@@ -294,22 +286,18 @@ Bot::Bot(int X, int Y, int Energy) : x(X), y(Y), weight(0) {
     RandomizeColor();
     //for (int m = 0; m < NeuronsInLayer*NumNeuronLayers; ++m)
 //    Mutate();
-for (auto  i=0; i < 10; i++) {
-    dnk.mutate(i);
-    dnk.mutate(i);
-    dnk.mutate(i);
-    Mutate();
-}
+    for (auto i = 0; i < 10; i++) {
+        dnk.mutate(i);
+        dnk.mutate(i);
+        dnk.mutate(i);
+        Mutate();
+    }
     RandomizeColor();
 }
 
 //BotNeuralNet *Bot::GetBrain() {
 //    return &brain;
 //}
-
-int Bot::coord() const {
-    return XY(x, y);
-}
 
 float Bot::FindKinship(t_object &stranger) const {
     return dnk.distance(stranger->dnk);

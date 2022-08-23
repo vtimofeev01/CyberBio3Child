@@ -35,9 +35,10 @@ oPoint Field::FindFreeNeighbourCell(int X, int Y) {
 }
 
 
-bool Field::AddObject(t_object &obj) {
-    if (boots[obj->coord()] != nullptr) return false;
-    boots[obj->coord()] = std::move(obj);
+bool Field::AddObject(t_object &obj, int _x, int _y) {
+    auto ixy = XY(_x, _y);
+    if (boots[ixy] != nullptr) return false;
+    boots[ixy] = std::move(obj);
     return true;
 }
 
@@ -77,6 +78,8 @@ void Field::ObjectTick1(int &i_xy) {
         if (boots[cxy] == nullptr) {
             b_input.vision = 0.0f; //0 if empty
             b_input.isRelative = 0.f;
+            b_input.goal_energy = static_cast<float>(sun_power[cx][cy] +
+                    terrain[cx][cy] == Terrain::earth ? FoodbaseMineralsTerrain : FoodbaseMineralsSea);
         } else {
             int lvl;
             assert(boots[cxy] != nullptr);
@@ -87,6 +90,8 @@ void Field::ObjectTick1(int &i_xy) {
             b_input.goal_energy = static_cast<float>(lvl);
         }
     }
+    b_input.local_terrain = terrain[i_x][i_y];
+    b_input.direct_terrain = terrain[cx][cy];
     assert(boots[i_xy] != nullptr);
     //Bot brain does its stuff
     boots[i_xy]->bots_ideas = boots[i_xy]->think(b_input);
@@ -109,8 +114,7 @@ void Field::ObjectTick2(int &i_xy) {
             auto freeSpace = FindFreeNeighbourCell(i_x, i_y);
             if (IsInBounds(freeSpace)) {
                 boots[i_xy]->TakeEnergy(EnergyPassedToAChild + GiveBirthCost);
-                auto val = MAKE_TObj(freeSpace.x, freeSpace.y,
-                                     EnergyPassedToAChild,
+                auto val = MAKE_TObj( EnergyPassedToAChild,
                                      boots[i_xy]);
                 AddObject(val, XY(freeSpace.x, freeSpace.y));
                 boots[i_xy]->stat_birth++;
@@ -264,13 +268,13 @@ void Field::draw(frame_type &image) {
             //Draw function switch, based on selected render type
             switch (render) {
                 case natural:
-                    boots[m_ix]->draw(image);
+                    boots[m_ix]->draw(image, m_ix);
                     break;
                 case predators:
-                    boots[m_ix]->drawPredators(image);
+                    boots[m_ix]->drawPredators(image, m_ix);
                     break;
                 case energy:
-                    boots[m_ix]->drawEnergy(image);
+                    boots[m_ix]->drawEnergy(image, m_ix);
                     break;
             }
         }
@@ -424,8 +428,8 @@ void Field::SpawnControlGroup() {
         if (boots[xy] != nullptr) continue;
         cnt++;
         if (cnt > ControlGroupSize) break;
-        auto tmpBot = MAKE_TObj(x, y, 100);
-        AddObject(tmpBot);
+        auto tmpBot = MAKE_TObj(100);
+        AddObject(tmpBot, x, y);
     }
 }
 
