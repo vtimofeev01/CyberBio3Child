@@ -43,9 +43,11 @@ public:
     int mutability_body;
     int mutability_brain;
     int max_life_time;
+    int fertilityDelay;
 
     DNK() : max_energy(MaxPossibleEnergyForABot), def_front(0), def_all(0), minerals_ability(0),
-            kill_ability(0), ps_ability(0), mutability_body(3), mutability_brain(5), max_life_time(MaxBotLifetime) {}
+            kill_ability(0), ps_ability(0), mutability_body(3), mutability_brain(5), max_life_time(MaxBotLifetime),
+            fertilityDelay(0){}
 
     DNK &operator=(const DNK &dnk2);
 
@@ -74,7 +76,7 @@ public:
 
 //Bot class
 class Bot {
-    int lifetime{0};
+
     BotNeuralNet brain;
     int weight; // for motion capability
 
@@ -104,7 +106,7 @@ class Bot {
 
 public:
     //----------------------------------------------------------------------------------------------
-
+    int lifetime{0};
     //Energy acquired from different sources
     unsigned long energyFromPS = 0;
     unsigned long energyFromKills = 0;

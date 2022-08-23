@@ -185,6 +185,8 @@ void Field::ObjectTick2(int &i_xy) {
                 boots[i_xy]->stat_steps++;
                 boots[i_xy]->TakeEnergy(MoveCost);
                 boots[c_xy] = std::move(boots[i_xy]);
+            } else {
+                boots[i_xy] = nullptr;
             }
         }
     }
@@ -404,6 +406,26 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
+        case lifetime:
+        {
+            fill_buf_2_draw(lifetime);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("lifetime");
+            extra_data.emplace_back(v.str());
+        }
+            break;
+        case fertility:
+        {
+            fill_buf_2_draw(fertility);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("fertility");
+            extra_data.emplace_back(v.str());
+        }
+            break;
     }
 
     Annotate(image, extra_data, cv::Scalar(0, 0, 255));
@@ -482,7 +504,9 @@ void Field::NextView() {
     else if (render == RenderTypes::mutability_body) render = RenderTypes::mutability_brain;
     else if (render == RenderTypes::mutability_brain) render = RenderTypes::max_life_time;
     else if (render == RenderTypes::max_life_time) render = RenderTypes::garb;
-    else if (render == RenderTypes::garb) render = RenderTypes::natural;
+    else if (render == RenderTypes::garb) render = RenderTypes::lifetime;
+    else if (render == RenderTypes::lifetime) render = RenderTypes::fertility;
+    else if (render == RenderTypes::fertility) render = RenderTypes::natural;
 }
 
 void Field::Annotate(frame_type &image, const std::vector<std::string> &extra, const cv::Scalar& color) const {
@@ -509,27 +533,6 @@ void Field::Annotate(frame_type &image, const std::vector<std::string> &extra, c
     }
 }
 
-int Field::CalcSunEnergy(int x, int y) const {
-    auto day_part = (int) (frame_number % p_24) * 4 / p_24;
-    auto year_part = (int) (frame_number % p_year) * 4 / p_year;
-    auto region = y / Region_Polar;
-    const int d[] = {0, 2, 4, 3};
-    const int st[] = {1, 3, 3, 3};
-    const int nt[] = {1, 2, 3, 2};
-    const int pt[] = {0, 0, 2, 1};
-    int out;
-    if (region == 3) {
-        out = PhotosynthesisReward_Summer * (d[day_part]) / 4;
-    } else if (region == 2) {
-        out = PhotosynthesisReward_Summer * (d[day_part]) * (st[year_part]) / 16;
-    } else if (region == 1) {
-        out = PhotosynthesisReward_Summer * (d[day_part]) * (nt[year_part]) / 16;
-    } else {
-        out = PhotosynthesisReward_Summer * (d[day_part]) * (pt[year_part]) / 16;
-    }
-    if (terrain[x][y] == Terrain::sea) out /= 2;
-    return out;
-}
 
 void Field::ShowMutations() {
     int max_energy{0};
@@ -670,6 +673,12 @@ void Field::fill_buf_2_draw(RenderTypes val) {
                         break;
                     case garb:
                         o_val = organic[x][y];
+                        break;
+                    case lifetime:
+                        o_val = boots[t_val]->lifetime;
+                        break;
+                    case fertility:
+                        o_val = boots[t_val]->dnk.fertilityDelay;
                         break;
                 }
                 tmp_buf2draw[x][y] = o_val;

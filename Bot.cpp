@@ -134,7 +134,7 @@ BrainOutput Bot::think(BrainInput input) {
         --fertilityDelay;
         toRet.divide = 0;
     } else if (toRet.divide) {
-        fertilityDelay = FertilityDelay;
+        fertilityDelay = dnk.fertilityDelay;
     }
     return toRet;
 }
@@ -314,7 +314,7 @@ DNK &DNK::operator=(const DNK &dnk2) {
 }
 
 void DNK::mutate(int d) {
-    int ix = rand() % 9;
+    int ix = rand() % 10;
     int diff = rand() % (d + 1);
     bool sign = rand() % 2;
     diff = (sign ? -1 : 1) * diff;
@@ -353,6 +353,10 @@ void DNK::mutate(int d) {
         }
         case 8: {
             max_life_time = std::max(0, max_life_time + diff * 10);
+            return;
+        }
+        case 9: {
+            fertilityDelay = std::max(0, fertilityDelay + diff);
             return;
         }
     }

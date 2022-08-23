@@ -71,8 +71,6 @@ public:
 
     [[nodiscard]] int GetSunEnergy(int x, int y) const;
 
-    [[nodiscard]] int CalcSunEnergy(int x, int y) const;
-
     // show the sun power
     static int drawAnyGrayScale(frame_type& image, int (*data)[FieldCellsWidth][FieldCellsHeight]);
 

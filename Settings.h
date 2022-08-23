@@ -112,7 +112,9 @@ enum RenderTypes
     mutability_body,
     mutability_brain,
     max_life_time,
-    garb
+    garb,
+    lifetime,
+    fertility
 };
 
 enum Terrain {
