@@ -26,9 +26,7 @@ enum EnergySource {
     ES_garbage,
 };
 class Bot;
-//using t_object = Bot;
 using TObject = Bot;
-//using t_object = std::shared_ptr<TObject>;
 using t_object = std::unique_ptr<TObject>;
 #define MAKE_TObj std::make_unique<TObject>
 
@@ -44,11 +42,13 @@ public:
     int mutability_brain;
     int max_life_time;
     int fertilityDelay;
+    int energy_given_on_birth;
+
     // TODO Terrain_move_ability and water_move_ability
 
     DNK() : max_energy(MaxPossibleEnergyForABot), def_front(0), def_all(0), minerals_ability(0),
             kill_ability(0), ps_ability(0), mutability_body(3), mutability_brain(10), max_life_time(MaxBotLifetime),
-            fertilityDelay(0){}
+            fertilityDelay(0), energy_given_on_birth(EnergyPassedToAChild){}
 
     DNK &operator=(const DNK &dnk2);
 
@@ -65,7 +65,9 @@ public:
         res += std::abs(1000 * (mutability_body - d2.mutability_body)) / (mutability_body + d2.mutability_body + 1);
         res += std::abs(1000 * (mutability_brain - d2.mutability_brain)) / (mutability_brain + d2.mutability_brain + 1);
         res += std::abs(1000 * (max_life_time - d2.max_life_time)) / (max_life_time + d2.max_life_time + 1);
-        return static_cast<float>(res) / 1000 / 9;
+        res += std::abs(1000 * (fertilityDelay - d2.fertilityDelay)) / (fertilityDelay + d2.fertilityDelay + 1);
+        res += std::abs(1000 * (energy_given_on_birth - d2.energy_given_on_birth)) / (energy_given_on_birth + d2.energy_given_on_birth + 1);
+        return static_cast<float>(res) / 1000 / 11;
     }
 
     void mutate(int d);
@@ -117,7 +119,7 @@ public:
     unsigned long stat_steps = 0;
     unsigned long stat_kills = 0;
     unsigned long stat_birth = 0;
-    unsigned long stat_moves = 0;
+    unsigned long stat_ps = 0;
 
     int direction{0};
 public:
@@ -130,7 +132,7 @@ public:
     BrainOutput think(BrainInput input);
 
     //Bot tick function, it should always call parents tick function first
-    int tick();
+    int tick(Terrain terr);
 
     //Bot main draw function
     void draw(frame_type &image, int _xy);
@@ -145,7 +147,8 @@ public:
     void Rotate(int dir = 1);
 
     //Give a bot some energy
-    void GiveEnergy(int num, EnergySource src);
+    // when there are too much energy it goes to organic
+    int GiveEnergy(int num, EnergySource src);
 
     //Get rotation
     [[nodiscard]] oPoint GetDirection() const;

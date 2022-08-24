@@ -76,12 +76,13 @@ void Field::ObjectTick1(int &i_xy) {
             b_input.vision = 0.0f; //0 if empty
             b_input.isRelative = -1.f;
             b_input.goal_energy = static_cast<float>(sun_power[cx][cy] +
-                    terrain[cx][cy] == Terrain::earth ? FoodbaseMineralsTerrain : FoodbaseMineralsSea);
+                                                     terrain[cx][cy] == Terrain::earth ? FoodbaseMineralsTerrain
+                                                                                       : FoodbaseMineralsSea);
         } else {
             assert(boots[cxy] != nullptr);
             //0.5 if someone in that cell
             b_input.vision = 0.5f;
-            b_input.isRelative = boots[cxy]->FindKinship(boots[i_xy]);
+            b_input.isRelative = boots[i_xy]->FindKinship(boots[cxy]);
             b_input.goal_energy = static_cast<float>(boots[cxy]->energy);
         }
     }
@@ -97,19 +98,19 @@ void Field::ObjectTick2(int &i_xy) {
     if (boots[i_xy] == nullptr) return;
     auto bots_ideas = boots[i_xy]->bots_ideas;
     auto [i_x, i_y] = XYr(i_xy);
-    // i am a tree
-
-
     //Multiply
     for (int b = 0; b < bots_ideas.divide; ++b) {
         //Dies if energy is too low
         // TODO make depended creation on size
-        if (boots[i_xy]->energy > EnergyPassedToAChild + GiveBirthCost) {
+        // TODO add EnergyPassedToAChild to DNK
+        auto birth_cost = GiveBirthCost;
+        auto birthE = boots[i_xy]->dnk.energy_given_on_birth + birth_cost;
+        if (boots[i_xy]->energy > birthE) {
             //Gives birth otherwise
             auto freeSpace = FindFreeNeighbourCell(i_x, i_y);
             if (IsInBounds(freeSpace)) {
-                boots[i_xy]->TakeEnergy(EnergyPassedToAChild + GiveBirthCost);
-                auto val = MAKE_TObj( EnergyPassedToAChild,
+                boots[i_xy]->TakeEnergy(birthE);
+                auto val = MAKE_TObj(EnergyPassedToAChild,
                                      boots[i_xy]);
                 AddObject(val, XY(freeSpace.x, freeSpace.y));
                 boots[i_xy]->stat_birth++;
@@ -134,16 +135,11 @@ void Field::ObjectTick2(int &i_xy) {
             auto cx_d_x = cx + cxy_directon.x;
             auto cx_d_y = cy + cxy_directon.y;
             if ((cx_d_x == i_x) && (cx_d_y == i_y)) defense += boots[cxy]->dnk.def_front;
-
-
-//            auto ad_diff = defense - boots[i_xy]->dnk.kill_ability;
-//            auto ad_summ = defense + boots[i_xy]->dnk.kill_ability;
-//            auto attack_cost = AttackCost * ad_diff / (ad_summ + 2) + AttackCost;
             auto attack_cost = AttackCost * (boots[i_xy]->dnk.kill_ability + 1) / (defense + 1);
             if (boots[i_xy]->energy > attack_cost) { //Kill an object
                 boots[i_xy]->stat_kills++;
                 boots[i_xy]->TakeEnergy(attack_cost);
-                boots[i_xy]->GiveEnergy(boots[cxy]->energy, kills);
+                organic[i_x][i_y] += boots[i_xy]->GiveEnergy(boots[cxy]->energy, kills);
                 boots[cxy] = nullptr;
             }
         }
@@ -163,13 +159,14 @@ void Field::ObjectTick2(int &i_xy) {
     if (bots_ideas.photosynthesis) { // TOO make photosynthesis effectivity
         auto ps_ab = (10 + boots[i_xy]->dnk.ps_ability) / 10;
         auto sun = GetSunEnergy(i_x, i_y) * ps_ab;
-        boots[i_xy]->GiveEnergy(sun, PS);
-
+        // TODO extra sun to garbage @chernosjom@
+        organic[i_x][i_y] += boots[i_xy]->GiveEnergy(sun, PS);
+        boots[i_xy]->stat_ps++;
 
         // and take minerals
-        boots[i_xy]->GiveEnergy(terrain[i_x][i_y] == Terrain::earth ?
-                                FoodbaseMineralsTerrain : FoodbaseMineralsSea,
-                                EnergySource::mineral);
+        organic[i_x][i_y] += boots[i_xy]->GiveEnergy(terrain[i_x][i_y] == Terrain::earth ?
+                                                     FoodbaseMineralsTerrain : FoodbaseMineralsSea,
+                                                     EnergySource::mineral);
         auto till_limit = boots[i_xy]->dnk.max_energy - boots[i_xy]->energy;
         auto to_take = std::min(till_limit, organic[i_x][i_y]);
         if (to_take) {
@@ -188,7 +185,7 @@ void Field::ObjectTick2(int &i_xy) {
         mc += boots[i_xy]->dnk.def_front / 3;
         mc += boots[i_xy]->dnk.def_all;
         mc += boots[i_xy]->dnk.ps_ability;
-        if (terrain[i_x][i_y] == Terrain::sea) mc /=4;
+        if (terrain[i_x][i_y] == Terrain::sea) mc /= 4;
         if (boots[i_xy]->energy > mc) {
             auto dir = boots[i_xy]->GetDirection();
             auto cx = i_x + dir.x;
@@ -211,53 +208,33 @@ void Field::ObjectTick2(int &i_xy) {
 inline void Field::tick_single_thread() {
     objectsTotal = 0;
     updateSunEnergy();
-    auto f1 = [&](auto& ri_xy) {
+
+    auto tbb_f1 = [&](auto &ri_xy) {
         for (int i_xy = ri_xy.begin(); i_xy < ri_xy.end(); i_xy++) {
             if (boots[i_xy]) {
                 auto [x_, y_] = XYr(i_xy);
-                if (boots[i_xy]->tick() == 1) {
+                auto o_tick = boots[i_xy]->tick(terrain[x_][y_]);
+                if (o_tick == 1) {
                     organic[x_][y_] = GiveBirthCost + boots[i_xy]->energy;
                     // too old or expired
                     boots[i_xy] = nullptr;
                     return;
                 }
-
-                boots[i_xy]->GiveEnergy(terrain[x_][y_] == Terrain::earth ?
-                                        FoodbaseMineralsTerrain : FoodbaseMineralsSea,
-                                        EnergySource::mineral);
-                auto till_limit = boots[i_xy]->dnk.max_energy - boots[i_xy]->energy;
-                auto to_take = std::min(till_limit, organic[x_][y_]);
-                if (to_take) {
-                    boots[i_xy]->GiveEnergy(to_take, EnergySource::ES_garbage);
-                    organic[x_][y_] -= to_take;
-                    assert(organic[x_][y_] >= 0);
-                }
-                ObjectTick1(i_xy);
+//                ObjectTick1(i_xy);
             }
         }
     };
 
-    auto f11 = [&](auto& i_xy) {
+    auto f11 = [&](auto &i_xy) {
         if (boots[i_xy]) {
             auto [x_, y_] = XYr(i_xy);
-            auto o_tick = boots[i_xy]->tick();
+            auto o_tick = boots[i_xy]->tick(terrain[x_][y_]);
             if (o_tick == 1) {
                 organic[x_][y_] = GiveBirthCost + boots[i_xy]->energy;
                 // too old or expired
                 boots[i_xy] = nullptr;
                 return;
             }
-
-//            boots[i_xy]->GiveEnergy(terrain[x_][y_] == Terrain::earth ?
-//                                    FoodbaseMineralsTerrain : FoodbaseMineralsSea,
-//                                    EnergySource::mineral);
-//            auto till_limit = boots[i_xy]->dnk.max_energy - boots[i_xy]->energy;
-//            auto to_take = std::min(till_limit, organic[x_][y_]);
-//            if (to_take) {
-//                boots[i_xy]->GiveEnergy(to_take, EnergySource::ES_garbage);
-//                organic[x_][y_] -= to_take;
-//                assert(organic[x_][y_] >= 0);
-//            }
             ObjectTick1(i_xy);
         }
     };
@@ -271,9 +248,14 @@ inline void Field::tick_single_thread() {
             ObjectTick2(m_ix);
         }
     };
-//        tbb::parallel_for(tbb::blocked_range<int>(0, FieldCellsWidth * FieldCellsHeight), f1);
-    for (auto i = 0; i < total; i++) f11(i);
-    for (auto i = 0; i < total; i++) f2(i);
+    tbb::parallel_for(tbb::blocked_range<int>(0, total), tbb_f1);
+    tbb::parallel_for(0, total, [&](auto ix) { if (boots[ix])ObjectTick1(ix); });
+    //    for (auto i = 0; i < total; i++) f11(i);
+    const auto tbb_step = total / 9;
+    //    for (auto i = 0; i < total; i++) f2(i);
+    for (auto ii = 0; ii < total; ii += tbb_step) {
+        tbb::parallel_for(ii, ii + tbb_step, f2);
+    }
 
     unsigned long sPS{0}, sK{0}, sM{0}, kills{0}, birth{0}, steps{0};
     for (auto i = 0; i < total; i++) {
@@ -337,8 +319,7 @@ void Field::draw(frame_type &image) {
             tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
             break;
         }
-        case sun_energy:
-        {
+        case sun_energy: {
             auto max_val = drawAnyGrayScale(image, &sun_power);
 //            std::cout << max_val << std::endl;
             std::ostringstream v;
@@ -347,8 +328,7 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
-        case max_energy:
-        {
+        case max_energy: {
             fill_buf_2_draw(max_energy);
             auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
             std::ostringstream v;
@@ -357,8 +337,7 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
-        case def_front:
-        {
+        case def_front: {
             fill_buf_2_draw(def_front);
             auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
             std::ostringstream v;
@@ -367,8 +346,7 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
-        case def_all:
-        {
+        case def_all: {
             fill_buf_2_draw(def_all);
             auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
             std::ostringstream v;
@@ -377,8 +355,7 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
-        case kill_ability:
-        {
+        case kill_ability: {
             fill_buf_2_draw(kill_ability);
             auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
             std::ostringstream v;
@@ -387,8 +364,7 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
-        case minerals_ability:
-        {
+        case minerals_ability: {
             fill_buf_2_draw(minerals_ability);
             auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
             std::ostringstream v;
@@ -397,8 +373,7 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
-        case ps_ability:
-        {
+        case ps_ability: {
             fill_buf_2_draw(ps_ability);
             auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
             std::ostringstream v;
@@ -407,8 +382,7 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
-        case mutability_body:
-        {
+        case mutability_body: {
             fill_buf_2_draw(mutability_body);
             auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
             std::ostringstream v;
@@ -417,8 +391,7 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
-        case mutability_brain:
-        {
+        case mutability_brain: {
             fill_buf_2_draw(mutability_brain);
             auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
             std::ostringstream v;
@@ -427,8 +400,7 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
-        case max_life_time:
-        {
+        case max_life_time: {
             fill_buf_2_draw(max_life_time);
             auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
             std::ostringstream v;
@@ -437,8 +409,7 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
-        case ::garb:
-        {
+        case ::garb: {
             fill_buf_2_draw(garb);
             auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
             std::ostringstream v;
@@ -447,8 +418,7 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
-        case lifetime:
-        {
+        case lifetime: {
             fill_buf_2_draw(lifetime);
             auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
             std::ostringstream v;
@@ -457,13 +427,21 @@ void Field::draw(frame_type &image) {
             extra_data.emplace_back(v.str());
         }
             break;
-        case fertility:
-        {
+        case fertility: {
             fill_buf_2_draw(fertility);
             auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
             std::ostringstream v;
             v << "max val:" << max_val;
             extra_data.emplace_back("fertility");
+            extra_data.emplace_back(v.str());
+        }
+            break;
+        case dnk_energy_given_on_birth: {
+            fill_buf_2_draw(dnk_energy_given_on_birth);
+            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            std::ostringstream v;
+            v << "max val:" << max_val;
+            extra_data.emplace_back("dnk_energy_given_on_birth");
             extra_data.emplace_back(v.str());
         }
             break;
@@ -508,7 +486,7 @@ Field::Field() {
             for (auto x = 0; x < FieldCellsWidth; x += tbb_step)
                 for (auto y = 0; y < FieldCellsHeight; y += tbb_step) {
                     xy = (x + x0) * FieldCellsWidth + y + y0;
-                    assert(std::find(sequence.begin(), sequence.end(), (xy)) == sequence.end());
+//                    assert(std::find(sequence.begin(), sequence.end(), (xy)) == sequence.end());
                     sequence.push_back(xy);
                     main_ix++;
                 }
@@ -548,10 +526,11 @@ void Field::NextView() {
     else if (render == RenderTypes::max_life_time) render = RenderTypes::garb;
     else if (render == RenderTypes::garb) render = RenderTypes::lifetime;
     else if (render == RenderTypes::lifetime) render = RenderTypes::fertility;
-    else if (render == RenderTypes::fertility) render = RenderTypes::natural;
+    else if (render == RenderTypes::fertility) render = RenderTypes::dnk_energy_given_on_birth;
+    else if (render == RenderTypes::dnk_energy_given_on_birth) render = RenderTypes::natural;
 }
 
-void Field::Annotate(frame_type &image, const std::vector<std::string> &extra, const cv::Scalar& color) const {
+void Field::Annotate(frame_type &image, const std::vector<std::string> &extra, const cv::Scalar &color) const {
 
     std::vector<std::string> lines;
     if (render == RenderTypes::natural) lines.emplace_back("view: natural");
@@ -620,25 +599,21 @@ void Field::updateSunEnergy() {
     const float deg_earth_axe = 23.f;
     const float deg_earth_axe_per_day = 2.f * deg_earth_axe / p_half_year;
 
-    const auto gra_to_rad = 3.14159265f/180;
+    const auto gra_to_rad = 3.14159265f / 180;
 
     auto day_of_year = static_cast<int>(frame_number % p_year);
     auto deg_cur_axe = deg_earth_axe - deg_earth_axe_per_day * std::abs(day_of_year - p_half_year);
-//    std::cout << "deg_cur_axe:" << deg_cur_axe;
-
-//    for (auto y = 0; y < FieldCellsHeight; y++)
-    tbb::parallel_for(0, FieldCellsHeight, [&](auto y)
-    {
+    tbb::parallel_for(0, FieldCellsHeight, [&](auto y) {
         auto terr_deg = deg_cur_axe + deg_low + deg_one * static_cast<float>(FieldCellsHeight - y);
         float coef;
-        if (terr_deg > 90.f) {coef = 0;}
+        if (terr_deg > 90.f) { coef = 0; }
         else {
             coef = std::cos(terr_deg * gra_to_rad);
         }
         int sp = static_cast<int>(PhotosynthesisReward_Summer * coef);
         for (auto x = 0; x < FieldCellsWidth; x++)
 //            sun_power[x][y] = CalcSunEnergy(x, y);
-            sun_power[x][y] = terrain[x][y] == Terrain::earth ? sp:sp/2;
+            sun_power[x][y] = terrain[x][y] == Terrain::earth ? sp : sp / 2;
     });
 }
 
@@ -674,8 +649,7 @@ int Field::drawAnyGrayScale(frame_type &image, int (*data)[FieldCellsWidth][Fiel
 void Field::fill_buf_2_draw(RenderTypes val) {
     int t_val, o_val;
     for (auto x = 0; x < FieldCellsWidth; x++)
-        for (auto y = 0; y < FieldCellsHeight; y++)
-        {
+        for (auto y = 0; y < FieldCellsHeight; y++) {
             t_val = XY(x, y);
             if (boots[t_val] == nullptr) { tmp_buf2draw[x][y] = 0; }
             else {
@@ -723,6 +697,9 @@ void Field::fill_buf_2_draw(RenderTypes val) {
                         break;
                     case fertility:
                         o_val = boots[t_val]->dnk.fertilityDelay;
+                        break;
+                    case dnk_energy_given_on_birth:
+                        o_val = boots[t_val]->dnk.energy_given_on_birth;
                         break;
                 }
                 tmp_buf2draw[x][y] = o_val;

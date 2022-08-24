@@ -1,3 +1,5 @@
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "hicpp-multiway-paths-covered"
 #include "Bot.h"
 #include "MyTypes.h"
 
@@ -139,18 +141,19 @@ BrainOutput Bot::think(BrainInput input) {
     return toRet;
 }
 
-int Bot::tick() {
-    lifetime++;
-    energy -= EveryTickEnergyPenalty;
-    // penalty from DNK
+int Bot::tick(Terrain terr) {
+    int loss{0};
     const int pen_factor = 1;
-    energy -= dnk.def_front * pen_factor / 2;
-    energy -= dnk.def_all * pen_factor;
-    energy -= dnk.minerals_ability * pen_factor;
-    energy -= dnk.kill_ability * pen_factor;
-    energy -= dnk.ps_ability * pen_factor;
-//    energy -= std::max(0, dnk.max_energy - MaxPossibleEnergyForABot) / 20;
-    energy -= MaxPossibleEnergyForABot / 100;
+    lifetime++;
+    loss += EveryTickEnergyPenalty;
+    loss += dnk.def_front * pen_factor / 2;
+    loss += dnk.def_all * pen_factor;
+    loss += dnk.minerals_ability * pen_factor;
+    loss += dnk.kill_ability * pen_factor;
+    loss += dnk.ps_ability * pen_factor;
+    loss += dnk.max_energy / 100;
+    if (terr == Terrain::sea) loss /=2;
+    energy -=loss;
     if (((energy) <= 0) || (lifetime >= MaxBotLifetime))
         return 1;
 
@@ -176,7 +179,7 @@ void Bot::draw(frame_type &image, int _xy) {
 
 
 void Bot::drawEnergy(frame_type &image, int _xy) {
-    auto c_ = energy * 255 / MaxPossibleEnergyForABot;
+    auto c_ = energy * 255 / dnk.max_energy;
     auto [xx, yy] = XYr(_xy);
     auto pt1 = cv::Point(FieldX + xx * FieldCellSize, FieldY + yy * FieldCellSize);
     auto pt2 = cv::Point(FieldX + xx * FieldCellSize + FieldCellSize, FieldY + yy * FieldCellSize + FieldCellSize);
@@ -187,7 +190,7 @@ void Bot::drawEnergy(frame_type &image, int _xy) {
                   cv::LINE_8, 0);
 
     //Draw outlines
-    drawOutlineAndHead(image, pt1, pt2);
+//    drawOutlineAndHead(image, pt1, pt2);
 }
 
 
@@ -220,11 +223,14 @@ void Bot::Rotate(int dir) {
 }
 
 
-void Bot::GiveEnergy(int num, EnergySource src) {
+int Bot::GiveEnergy(int num, EnergySource src) {
     energy += num;
+    int out{0};
 
     if (energy > dnk.max_energy) {
+        out = dnk.max_energy - energy;
         energy = dnk.max_energy;
+
     }
 
     if (src == PS) {
@@ -236,6 +242,7 @@ void Bot::GiveEnergy(int num, EnergySource src) {
     } else if (src == ES_garbage) {
         energyFromOrganic += num;
     }
+    return out;
 }
 
 bool Bot::TakeEnergy(int val) {
@@ -319,10 +326,11 @@ DNK &DNK::operator=(const DNK &dnk2) {
     mutability_brain = dnk2.mutability_brain;
     max_life_time = dnk2.max_life_time;
     fertilityDelay = dnk2.fertilityDelay;
+    energy_given_on_birth = dnk2.energy_given_on_birth;
 }
 
 void DNK::mutate(int d) {
-    int ix = rand() % 10;
+    int ix = rand() % 11;
     int diff = rand() % (d + 1);
     bool sign = rand() % 2;
     diff = (sign ? -1 : 1) * diff;
@@ -367,6 +375,10 @@ void DNK::mutate(int d) {
             fertilityDelay = std::max(0, fertilityDelay + diff);
             return;
         }
+        case 10: {
+            energy_given_on_birth = std::max(0, energy_given_on_birth + diff);
+            return;
+        }
     }
 
 
@@ -380,3 +392,5 @@ void DNK::mutate(int d) {
         << " M:" << mutability_body << "/" << mutability_brain;
     return out.str();
 }
+
+#pragma clang diagnostic pop
