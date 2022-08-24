@@ -11,8 +11,8 @@ const cv::Scalar color_sea{148, 105, 0};
 const int tbb_step{3};
 
 
-//using tbb_vec_obj = tbb::concurrent_vector<t_object>;
-using tbb_vec_obj = std::vector<t_object>;
+using tbb_vec_obj = tbb::concurrent_vector<t_object>;
+//using tbb_vec_obj = std::vector<t_object>;
 
 //Simulation field class
 class Field

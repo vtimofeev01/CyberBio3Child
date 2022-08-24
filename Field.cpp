@@ -51,9 +51,6 @@ bool Field::AddObject(t_object &obj, int coord) {
 void Field::ObjectTick1(int &i_xy) {
     assert(boots[i_xy] != nullptr);
     auto [i_x, i_y] = XYr(i_xy);
-    int t = boots[i_xy]->tick();
-    if (t == 2) { return; }
-
     //Fill brain input structure
     BrainInput b_input;
 
@@ -77,17 +74,15 @@ void Field::ObjectTick1(int &i_xy) {
         //Destination cell is empty
         if (boots[cxy] == nullptr) {
             b_input.vision = 0.0f; //0 if empty
-            b_input.isRelative = 0.f;
+            b_input.isRelative = -1.f;
             b_input.goal_energy = static_cast<float>(sun_power[cx][cy] +
                     terrain[cx][cy] == Terrain::earth ? FoodbaseMineralsTerrain : FoodbaseMineralsSea);
         } else {
-            int lvl;
             assert(boots[cxy] != nullptr);
-            lvl = boots[cxy]->energy;
             //0.5 if someone in that cell
             b_input.vision = 0.5f;
             b_input.isRelative = boots[cxy]->FindKinship(boots[i_xy]);
-            b_input.goal_energy = static_cast<float>(lvl);
+            b_input.goal_energy = static_cast<float>(boots[cxy]->energy);
         }
     }
     b_input.local_terrain = terrain[i_x][i_y];
@@ -141,9 +136,10 @@ void Field::ObjectTick2(int &i_xy) {
             if ((cx_d_x == i_x) && (cx_d_y == i_y)) defense += boots[cxy]->dnk.def_front;
 
 
-            auto ad_diff = defense - boots[i_xy]->dnk.kill_ability;
-            auto ad_summ = defense + boots[i_xy]->dnk.kill_ability;
-            auto attack_cost = AttackCost * ad_diff / (ad_summ + 2) + AttackCost;
+//            auto ad_diff = defense - boots[i_xy]->dnk.kill_ability;
+//            auto ad_summ = defense + boots[i_xy]->dnk.kill_ability;
+//            auto attack_cost = AttackCost * ad_diff / (ad_summ + 2) + AttackCost;
+            auto attack_cost = AttackCost * (boots[i_xy]->dnk.kill_ability + 1) / (defense + 1);
             if (boots[i_xy]->energy > attack_cost) { //Kill an object
                 boots[i_xy]->stat_kills++;
                 boots[i_xy]->TakeEnergy(attack_cost);
@@ -168,18 +164,35 @@ void Field::ObjectTick2(int &i_xy) {
         auto ps_ab = (10 + boots[i_xy]->dnk.ps_ability) / 10;
         auto sun = GetSunEnergy(i_x, i_y) * ps_ab;
         boots[i_xy]->GiveEnergy(sun, PS);
+
+
+        // and take minerals
+        boots[i_xy]->GiveEnergy(terrain[i_x][i_y] == Terrain::earth ?
+                                FoodbaseMineralsTerrain : FoodbaseMineralsSea,
+                                EnergySource::mineral);
+        auto till_limit = boots[i_xy]->dnk.max_energy - boots[i_xy]->energy;
+        auto to_take = std::min(till_limit, organic[i_x][i_y]);
+        if (to_take) {
+            boots[i_xy]->GiveEnergy(to_take, EnergySource::ES_garbage);
+            organic[i_x][i_y] -= to_take;
+            assert(organic[i_x][i_y] >= 0);
+        }
+
         return;
     }
 
     assert(boots[i_xy] != nullptr);
     if (bots_ideas.move) { // TODO make move cost on weight and terrain
-        auto mc = terrain[i_x][i_y] == Terrain::earth ? MoveCost : MoveCost / 2;
+        auto mc = MoveCost;
+        mc += boots[i_xy]->dnk.max_energy / 100;
+        mc += boots[i_xy]->dnk.def_front / 3;
+        mc += boots[i_xy]->dnk.def_all;
+        mc += boots[i_xy]->dnk.ps_ability;
+        if (terrain[i_x][i_y] == Terrain::sea) mc /=4;
         if (boots[i_xy]->energy > mc) {
             auto dir = boots[i_xy]->GetDirection();
             auto cx = i_x + dir.x;
             auto cy = i_y + dir.y;
-//            cy = std::max(cy, 0);
-//            cx = ValidateX(cx);
             auto c_xy = XY(cx, cy);
             if (IsInBounds(cx, cy) && (boots[c_xy] == nullptr)) {
                 boots[i_xy]->stat_steps++;
@@ -198,31 +211,58 @@ void Field::ObjectTick2(int &i_xy) {
 inline void Field::tick_single_thread() {
     objectsTotal = 0;
     updateSunEnergy();
-    auto f1 = [&](int i_xy) {
+    auto f1 = [&](auto& ri_xy) {
+        for (int i_xy = ri_xy.begin(); i_xy < ri_xy.end(); i_xy++) {
+            if (boots[i_xy]) {
+                auto [x_, y_] = XYr(i_xy);
+                if (boots[i_xy]->tick() == 1) {
+                    organic[x_][y_] = GiveBirthCost + boots[i_xy]->energy;
+                    // too old or expired
+                    boots[i_xy] = nullptr;
+                    return;
+                }
+
+                boots[i_xy]->GiveEnergy(terrain[x_][y_] == Terrain::earth ?
+                                        FoodbaseMineralsTerrain : FoodbaseMineralsSea,
+                                        EnergySource::mineral);
+                auto till_limit = boots[i_xy]->dnk.max_energy - boots[i_xy]->energy;
+                auto to_take = std::min(till_limit, organic[x_][y_]);
+                if (to_take) {
+                    boots[i_xy]->GiveEnergy(to_take, EnergySource::ES_garbage);
+                    organic[x_][y_] -= to_take;
+                    assert(organic[x_][y_] >= 0);
+                }
+                ObjectTick1(i_xy);
+            }
+        }
+    };
+
+    auto f11 = [&](auto& i_xy) {
         if (boots[i_xy]) {
             auto [x_, y_] = XYr(i_xy);
-            if (boots[i_xy]->tick() == 1) {
-                organic[x_][y_] = GiveBirthCost;
+            auto o_tick = boots[i_xy]->tick();
+            if (o_tick == 1) {
+                organic[x_][y_] = GiveBirthCost + boots[i_xy]->energy;
                 // too old or expired
                 boots[i_xy] = nullptr;
                 return;
             }
 
-            boots[i_xy]->GiveEnergy(terrain[x_][y_] == Terrain::earth ?
-                                    FoodbaseMineralsTerrain : FoodbaseMineralsSea,
-                                    EnergySource::mineral);
-            auto till_limit = boots[i_xy]->dnk.max_energy - boots[i_xy]->energy;
-            auto to_take = std::min(till_limit, organic[x_][y_]);
-            if (to_take) {
-                boots[i_xy]->GiveEnergy(to_take, EnergySource::ES_garbage);
-                organic[x_][y_] -= to_take;
-                assert(organic[x_][y_] >= 0);
-            }
+//            boots[i_xy]->GiveEnergy(terrain[x_][y_] == Terrain::earth ?
+//                                    FoodbaseMineralsTerrain : FoodbaseMineralsSea,
+//                                    EnergySource::mineral);
+//            auto till_limit = boots[i_xy]->dnk.max_energy - boots[i_xy]->energy;
+//            auto to_take = std::min(till_limit, organic[x_][y_]);
+//            if (to_take) {
+//                boots[i_xy]->GiveEnergy(to_take, EnergySource::ES_garbage);
+//                organic[x_][y_] -= to_take;
+//                assert(organic[x_][y_] >= 0);
+//            }
             ObjectTick1(i_xy);
         }
     };
-//    tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f1);
     const auto total = FieldCellsWidth * FieldCellsHeight;
+
     auto f2 = [&](int i_xy) {
 //    for (auto i_xy = 0; i_xy < FieldCellsWidth * FieldCellsHeight; i_xy++) {
         auto m_ix = sequence[i_xy];
@@ -231,7 +271,8 @@ inline void Field::tick_single_thread() {
             ObjectTick2(m_ix);
         }
     };
-    for (auto i = 0; i < total; i++) f1(i);
+//        tbb::parallel_for(tbb::blocked_range<int>(0, FieldCellsWidth * FieldCellsHeight), f1);
+    for (auto i = 0; i < total; i++) f11(i);
     for (auto i = 0; i < total; i++) f2(i);
 
     unsigned long sPS{0}, sK{0}, sM{0}, kills{0}, birth{0}, steps{0};
@@ -446,7 +487,8 @@ void Field::SpawnControlGroup() {
     for (int i = 0; i < ControlGroupSize * 3; i++) {
         x = RandomVal(FieldCellsWidth);
         y = RandomVal(FieldCellsHeight);
-        xy - XY(x, y);
+        if (!IsInBounds(x, y)) continue;
+        xy = XY(x, y);
         if (boots[xy] != nullptr) continue;
         cnt++;
         if (cnt > ControlGroupSize) break;
@@ -584,7 +626,9 @@ void Field::updateSunEnergy() {
     auto deg_cur_axe = deg_earth_axe - deg_earth_axe_per_day * std::abs(day_of_year - p_half_year);
 //    std::cout << "deg_cur_axe:" << deg_cur_axe;
 
-    for (auto y = 0; y < FieldCellsHeight; y++) {
+//    for (auto y = 0; y < FieldCellsHeight; y++)
+    tbb::parallel_for(0, FieldCellsHeight, [&](auto y)
+    {
         auto terr_deg = deg_cur_axe + deg_low + deg_one * static_cast<float>(FieldCellsHeight - y);
         float coef;
         if (terr_deg > 90.f) {coef = 0;}
@@ -595,7 +639,7 @@ void Field::updateSunEnergy() {
         for (auto x = 0; x < FieldCellsWidth; x++)
 //            sun_power[x][y] = CalcSunEnergy(x, y);
             sun_power[x][y] = terrain[x][y] == Terrain::earth ? sp:sp/2;
-    }
+    });
 }
 
 int Field::GetSunEnergy(int x, int y) const {

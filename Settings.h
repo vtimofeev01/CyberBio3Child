@@ -10,8 +10,8 @@ const cv::Scalar FieldBackgroundColor{255, 255, 255};
 #define FieldX InterfaceBorder
 #define FieldY InterfaceBorder
 
-#define FieldCellsWidth 192        //?????? ???????? ?? 8 ??? ??????? ???? ????? 4 ??????! ? ?? 16 ??? ??????? ???? 8 ???????!
-#define FieldCellsHeight 192
+#define FieldCellsWidth (192 + 192 / 2)        //?????? ???????? ?? 8 ??? ??????? ???? ????? 4 ??????! ? ?? 16 ??? ??????? ???? 8 ???????!
+#define FieldCellsHeight (192 + 192 / 2)
 auto XY = [](int x, int y) {return x * FieldCellsWidth + y;};
 auto XYr = [](int xy) {return std::tuple(xy / FieldCellsWidth, xy % FieldCellsWidth);};
 #define FieldCellSize 3
@@ -42,16 +42,14 @@ const int p_half_year{p_year / 2};
 const int MaxBotLifetime{5 * p_year};
 
 const int UE{10}; // Energy Unit
-const int FoodbaseInitial{4 * UE};
 const int FoodbaseMineralsTerrain{1 * UE};
 const int FoodbaseMineralsSea{4 * UE};
 const int PhotosynthesisReward_Summer{8 * UE};
-const int Region_Polar{FieldCellsHeight / 4};
-const int MaxPossibleEnergyForABot{500 * UE};
+const int MaxPossibleEnergyForABot{50 * UE};
 const int EnergyPassedToAChild{50 * UE};
 const int EveryTickEnergyPenalty{0 *UE};
 const int AttackCost{4 * UE};
-const int MoveCost{1 * UE};
+const int MoveCost{1 * UE / 5};
 const int RotateCost{1 * UE / 5};
 const int GiveBirthCost{10 * UE};
 

@@ -14,10 +14,10 @@ struct BrainInput
     Terrain local_terrain = Terrain::earth;
     Terrain direct_terrain = Terrain::earth;
 
-    // TODO add what he sees
-    // TODO what the terrain hi is
-    // TODO what the terrain hi wants to be
-    // TODO Energy levels
+    // TOO add what he sees
+    // TOO what the terrain hi is
+    // TOO what the terrain hi wants to be
+    // TOO Energy levels
 };
 
 

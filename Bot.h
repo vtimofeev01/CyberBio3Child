@@ -44,9 +44,10 @@ public:
     int mutability_brain;
     int max_life_time;
     int fertilityDelay;
+    // TODO Terrain_move_ability and water_move_ability
 
     DNK() : max_energy(MaxPossibleEnergyForABot), def_front(0), def_all(0), minerals_ability(0),
-            kill_ability(0), ps_ability(0), mutability_body(3), mutability_brain(5), max_life_time(MaxBotLifetime),
+            kill_ability(0), ps_ability(0), mutability_body(3), mutability_brain(10), max_life_time(MaxBotLifetime),
             fertilityDelay(0){}
 
     DNK &operator=(const DNK &dnk2);

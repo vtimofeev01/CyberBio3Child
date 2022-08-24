@@ -149,7 +149,8 @@ int Bot::tick() {
     energy -= dnk.minerals_ability * pen_factor;
     energy -= dnk.kill_ability * pen_factor;
     energy -= dnk.ps_ability * pen_factor;
-    energy -= std::max(0, dnk.max_energy - MaxPossibleEnergyForABot) / 20;
+//    energy -= std::max(0, dnk.max_energy - MaxPossibleEnergyForABot) / 20;
+    energy -= MaxPossibleEnergyForABot / 100;
     if (((energy) <= 0) || (lifetime >= MaxBotLifetime))
         return 1;
 
@@ -254,17 +255,20 @@ Bot::Bot(int Energy, t_object &prototype) : brain(&prototype->brain),
 
     energy = Energy;
     stunned = StunAfterBirth;
-    fertilityDelay = FertilityDelay;
+    fertilityDelay = prototype->dnk.fertilityDelay;
     energyFromPS = 0;
     energyFromKills = 0;
     dnk = prototype->dnk;
     color = prototype->color;
     direction = rand() % 8;
-    if (rand() % 10 == 0) return;
+    if (rand() % 5 == 0) return;
+    for (int s = 0; s <=( rand()%(dnk.mutability_brain + 1)); s++) brain.MutateSlightly();
+    if (rand() % 40 == 0) return;
 //    std::ostringstream mm;
 //    mm << " " << dnk.descript();
     for (auto i = 0; i <= dnk.mutability_body; i++) dnk.mutate(1);
-    for (int s = 0; s <= dnk.mutability_brain; s++) brain.MutateSlightly();
+    Mutate();
+//    for (int s = 0; s <= dnk.mutability_brain; s++) brain.MutateSlightly();
     auto diff = FindKinship(prototype);
 //    mm << " |> " << dnk.descript() << "  K:" <<  diff;
 //    std::cout << mm.str() << std::endl;
@@ -311,6 +315,10 @@ DNK &DNK::operator=(const DNK &dnk2) {
     minerals_ability = dnk2.minerals_ability;
     kill_ability = dnk2.kill_ability;
     ps_ability = dnk2.ps_ability;
+    mutability_body = dnk2.mutability_body;
+    mutability_brain = dnk2.mutability_brain;
+    max_life_time = dnk2.max_life_time;
+    fertilityDelay = dnk2.fertilityDelay;
 }
 
 void DNK::mutate(int d) {
