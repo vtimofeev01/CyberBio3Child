@@ -127,10 +127,6 @@ void Field::ObjectTick2(int &i_xy) {
         auto cxy = XY(cx, cy);
         assert(cxy != i_xy);
         if (IsInBounds(cx, cy) &&( boots[cxy] != nullptr)) {
-            // compare both at kill ability and calc a chance to kill
-//            auto can_kill = (100 * (boots[i_xy]->dnk.kill_ability + 1) /
-//                            (boots[i_xy]->dnk.kill_ability + boots[cxy]->dnk.kill_ability + 1)) >=(rand() % 100);
-
             auto defense = boots[cxy]->dnk.def_all;
             // see where looks the attacked
             auto cxy_directon = boots[cxy]->GetDirection();
