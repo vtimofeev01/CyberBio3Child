@@ -34,7 +34,6 @@ oPoint Field::FindFreeNeighbourCell(int X, int Y) {
     return {-1, -1};
 }
 
-
 bool Field::AddObject(t_object &obj, int _x, int _y) {
     auto ixy = XY(_x, _y);
     if (boots[ixy] != nullptr) return false;
@@ -121,15 +120,18 @@ void Field::ObjectTick2(int &i_xy) {
 
     //Then attack
     if (bots_ideas.attack) {
-        //If dies of low energy
+        // No attack if low energy
         auto dir = boots[i_xy]->GetDirection();
         auto cx = i_x + dir.x; // ValidateX(i_x + dir.x);
         auto cy = i_y + dir.y;
         auto cxy = XY(cx, cy);
         assert(cxy != i_xy);
-        if (IsInBounds(cx, cy) && boots[cxy] != nullptr) {
-            auto defense = boots[cxy]->dnk.def_all;
+        if (IsInBounds(cx, cy) &&( boots[cxy] != nullptr)) {
+            // compare both at kill ability and calc a chance to kill
+//            auto can_kill = (100 * (boots[i_xy]->dnk.kill_ability + 1) /
+//                            (boots[i_xy]->dnk.kill_ability + boots[cxy]->dnk.kill_ability + 1)) >=(rand() % 100);
 
+            auto defense = boots[cxy]->dnk.def_all;
             // see where looks the attacked
             auto cxy_directon = boots[cxy]->GetDirection();
             auto cx_d_x = cx + cxy_directon.x;
@@ -157,8 +159,8 @@ void Field::ObjectTick2(int &i_xy) {
     //Move
     //Photosynthesis
     if (bots_ideas.photosynthesis) { // TOO make photosynthesis effectivity
-        auto ps_ab = (10 + boots[i_xy]->dnk.ps_ability) / 10;
-        auto sun = GetSunEnergy(i_x, i_y) * ps_ab;
+        auto ps_ab = std::sqrt((10 + boots[i_xy]->dnk.ps_ability) / 10);
+        auto sun = static_cast<int>(GetSunEnergy(i_x, i_y) * ps_ab);
         // TODO extra sun to garbage @chernosjom@
         organic[i_x][i_y] += boots[i_xy]->GiveEnergy(sun, PS);
         boots[i_xy]->stat_ps++;
@@ -293,10 +295,13 @@ void Field::draw(frame_type &image) {
             //Draw function switch, based on selected render type
             switch (render) {
                 case natural:
-                    boots[m_ix]->draw(image, m_ix);
+                    boots[m_ix]->draw(image, m_ix, true);
                     break;
                 case predators:
                     boots[m_ix]->drawPredators(image, m_ix);
+                    break;
+                case abilities:
+                    boots[m_ix]->draw(image, m_ix, false);
                     break;
                 case energy:
                     boots[m_ix]->drawEnergy(image, m_ix);
@@ -315,6 +320,11 @@ void Field::draw(frame_type &image) {
             tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
             break;
         }
+        case abilities:{
+            extra_data.emplace_back("Character");
+            tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
+        }
+            break;
         case energy: {
             tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
             break;
@@ -513,7 +523,8 @@ Field::Field() {
 void Field::NextView() {
     if (render == RenderTypes::natural) render = RenderTypes::energy;
     else if (render == RenderTypes::energy) render = RenderTypes::predators;
-    else if (render == RenderTypes::predators) render = RenderTypes::sun_energy;
+    else if (render == RenderTypes::predators) render = RenderTypes::abilities;
+    else if (render == RenderTypes::abilities) render = RenderTypes::sun_energy;
     else if (render == RenderTypes::sun_energy) render = RenderTypes::max_energy;
     else if (render == RenderTypes::max_energy) render = RenderTypes::def_front;
     else if (render == RenderTypes::def_front) render = RenderTypes::def_all;
@@ -631,17 +642,19 @@ int Field::drawAnyGrayScale(frame_type &image, int (*data)[FieldCellsWidth][Fiel
             min_val = std::min(min_val, (*data)[x][y]);
         }
     int c_;
-    for (auto x = 0; x < FieldCellsWidth; x++)
-        for (auto y = 0; y < FieldCellsHeight; y++) {
-            c_ = (*data)[x][y] * 255 / (max_val + 1);
-            cv::rectangle(image,
-                          cv::Point(FieldX + x * FieldCellSize + 1, FieldY + y * FieldCellSize + 1),
-                          cv::Point(FieldX + x * FieldCellSize + FieldCellSize - 1,
-                                    FieldY + y * FieldCellSize + FieldCellSize - 1),
-                          cv::Scalar(c_, c_, c_),
-                          -1,
-                          cv::LINE_8, 0);
-        }
+//    for (auto x = 0; x < FieldCellsWidth; x++)
+        tbb::parallel_for(0, FieldCellsWidth, [&](auto x) {
+            for (auto y = 0; y < FieldCellsHeight; y++) {
+                c_ = (*data)[x][y] * 255 / (max_val + 1);
+                cv::rectangle(image,
+                              cv::Point(FieldX + x * FieldCellSize + 1, FieldY + y * FieldCellSize + 1),
+                              cv::Point(FieldX + x * FieldCellSize + FieldCellSize - 1,
+                                        FieldY + y * FieldCellSize + FieldCellSize - 1),
+                              cv::Scalar(c_, c_, c_),
+                              -1,
+                              cv::LINE_8, 0);
+            }
+        });
     return max_val;
 
 }

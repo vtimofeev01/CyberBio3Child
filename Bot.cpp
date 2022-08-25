@@ -1,5 +1,3 @@
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "hicpp-multiway-paths-covered"
 #include "Bot.h"
 #include "MyTypes.h"
 
@@ -19,6 +17,7 @@ void Bot::RandomizeColor() {
     if (pm == 0) {
         color[i] = std::min(color[i] + 10, 255.);
     } else color[i] = std::max(color[i] - 10, 0.);
+    ChangeColor(0, dnk.minerals_ability, dnk.ps_ability, dnk.kill_ability);
 }
 
 
@@ -32,8 +31,12 @@ void Bot::RandomizeColor() {
 //}
 
 
-void Bot::ChangeColor(const int str) {
+void Bot::ChangeColor(const int str, int pref_b, int pref_g, int pref_r) {
     int i = rand() % 3;
+    auto p_sum = pref_b + pref_g + pref_r + 1.f;
+    ab_color = cv::Scalar(static_cast<double>(255 * pref_b / p_sum),
+                          static_cast<double>(255 * pref_g / p_sum),
+                          static_cast<double>(255 * pref_r / p_sum));
 
     int changeColor = rand() % ((2 * str) + 1) - str;
     color[i] += changeColor;
@@ -50,7 +53,7 @@ void Bot::ChangeColor(const int str) {
     brain.MutateSlightly();
 
 #ifdef ChangeColorSlightly
-    ChangeColor(10);
+    ChangeColor(10, 0, 0, 0);
 #endif
 }
 
@@ -67,7 +70,7 @@ void Bot::Mutate() {
         brain.MutateSlightly();
 
     //Change color
-    ChangeColor(20);
+    ChangeColor(20, 0, 0, 0);
 
 }
 
@@ -86,15 +89,7 @@ void Bot::drawOutlineAndHead(frame_type &image, cv::Point &p1, cv::Point &p2) co
 
     cv::circle(image, cv::Point(hx, hy), 1, head, -1);
 
-#ifdef DrawBotOutline
-//	SDL_SetRenderDrawColor(renderer, BotOutlineColor);
-//	SDL_RenderDrawRect(renderer, &rect);
-#endif
 
-    //Draw direction marker
-#ifdef DrawBotHead
-//	SDL_RenderDrawLine(renderer, FieldX + x * FieldCellSize + FieldCellSizeHalf, FieldY + y * FieldCellSize + FieldCellSizeHalf, FieldX + x * FieldCellSize + FieldCellSizeHalf + Rotations[direction].x * FieldCellSizeHalf, FieldY + y * FieldCellSize + FieldCellSizeHalf + Rotations[direction].y * FieldCellSizeHalf);
-#endif
 }
 
 
@@ -161,14 +156,14 @@ int Bot::tick(Terrain terr) {
 }
 
 
-void Bot::draw(frame_type &image, int _xy) {
+void Bot::draw(frame_type &image, int _xy, bool use_own_color) {
     auto [xx, yy] = XYr(_xy);
     auto pt1 = cv::Point(FieldX + xx * FieldCellSize, FieldY + yy * FieldCellSize);
     auto pt2 = cv::Point(FieldX + xx * FieldCellSize + FieldCellSize, FieldY + yy * FieldCellSize + FieldCellSize);
     cv::rectangle(image,
                   pt1,
                   pt2,
-                  color,
+                  use_own_color? color: ab_color,
                   -1,
                   cv::LINE_8, 0);
 
@@ -279,7 +274,7 @@ Bot::Bot(int Energy, t_object &prototype) : brain(&prototype->brain),
     auto diff = FindKinship(prototype);
 //    mm << " |> " << dnk.descript() << "  K:" <<  diff;
 //    std::cout << mm.str() << std::endl;
-    ChangeColor((int) (255.f * diff));
+    ChangeColor((int) (255.f * diff), dnk.minerals_ability, dnk.ps_ability, dnk.kill_ability);
 }
 
 

@@ -92,11 +92,13 @@ class Bot {
     cv::Scalar color{static_cast<double>(rand() % 250), static_cast<double>(rand() % 250),
                      static_cast<double>(rand() % 250)};
 
+    cv::Scalar ab_color{static_cast<double>(rand() % 250), static_cast<double>(rand() % 250),
+                     static_cast<double>(rand() % 250)};
     //Set random color
     void RandomizeColor();
 
     //Shift color a little (-10 to +10)
-    void ChangeColor(int str = 10);
+    void ChangeColor(const int str, int pref_b, int pref_g, int pref_r);
 
     //Experimental
     [[maybe_unused]] void SlightlyMutate();
@@ -135,7 +137,7 @@ public:
     int tick(Terrain terr);
 
     //Bot main draw function
-    void draw(frame_type &image, int _xy);
+    void draw(frame_type &image, int _xy, bool use_own_color);
 
     //Bot draw function is energy mode
     void drawEnergy(frame_type &image, int _xy);

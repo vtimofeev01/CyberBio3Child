@@ -21,15 +21,6 @@ auto XYr = [](int xy) {return std::tuple(xy / FieldCellsWidth, xy % FieldCellsWi
 //-----------------------------------------------------------------
 
 
-
-//-----------------------------------------------------------------
-//Drawing
-#define DrawBotOutline
-#define DrawBotHead
-
-const cv::Scalar OceanColor{255, 155, 155};
-
-
 #define RenderTypeAtStart predators
 
 #define ControlGroupSize 5000
@@ -95,7 +86,11 @@ const int GiveBirthCost{10 * UE};
 
 enum RenderTypes
 {
-    natural, predators, energy, sun_energy,
+    natural,
+    predators,
+    abilities,
+    energy,
+    sun_energy,
     // DNK data
     max_energy,
     def_front,
