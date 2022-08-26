@@ -44,12 +44,15 @@ public:
     int max_life_time;
     int fertilityDelay;
     int energy_given_on_birth;
+    int move_ability_earth;
+    int move_ability_sea;
 
     // TODO Terrain_move_ability and water_move_ability
 
     DNK() : max_energy(MaxPossibleEnergyForABot), def_front(0), def_all(0), minerals_ability(0),
             kill_ability(0), ps_ability(0), mutability_body(3), mutability_brain(10), max_life_time(MaxBotLifetime),
-            fertilityDelay(0), energy_given_on_birth(EnergyPassedToAChild){}
+            fertilityDelay(0), energy_given_on_birth(EnergyPassedToAChild),
+            move_ability_earth(0), move_ability_sea(0){}
 
     DNK &operator=(const DNK &dnk2);
 
@@ -68,6 +71,8 @@ public:
         res += std::abs(1000 * (max_life_time - d2.max_life_time)) / (max_life_time + d2.max_life_time + 1);
         res += std::abs(1000 * (fertilityDelay - d2.fertilityDelay)) / (fertilityDelay + d2.fertilityDelay + 1);
         res += std::abs(1000 * (energy_given_on_birth - d2.energy_given_on_birth)) / (energy_given_on_birth + d2.energy_given_on_birth + 1);
+        res += std::abs(1000 * (move_ability_earth - d2.move_ability_earth)) / (move_ability_earth + d2.move_ability_earth + 1);
+        res += std::abs(1000 * (move_ability_sea - d2.move_ability_sea)) / (move_ability_sea + d2.move_ability_sea + 1);
         return static_cast<float>(res) / 1000 / 11;
     }
 

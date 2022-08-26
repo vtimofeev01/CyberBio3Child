@@ -12,6 +12,7 @@ const cv::Scalar FieldBackgroundColor{255, 255, 255};
 
 const int FieldCellsWidth{35 * 9}; //(192 + 192 / 2)        //?????? ???????? ?? 8 ??? ??????? ???? ????? 4 ??????! ? ?? 16 ??? ??????? ???? 8 ???????!
 const int FieldCellsHeight{FieldCellsWidth}; //(192 + 192 / 2)
+const int TotalCells = FieldCellsWidth * FieldCellsHeight;
 auto XY = [](int x, int y) {return x * FieldCellsWidth + y;};
 auto XYr = [](int xy) {return std::tuple(xy / FieldCellsWidth, xy % FieldCellsWidth);};
 #define FieldCellSize 3
@@ -40,7 +41,7 @@ const int MaxPossibleEnergyForABot{50 * UE};
 const int EnergyPassedToAChild{50 * UE};
 const int EveryTickEnergyPenalty{0 *UE};
 const int AttackCost{4 * UE};
-const int MoveCost{1 * UE / 5};
+const int MoveCost{1 * UE};
 const int RotateCost{1 * UE / 5};
 const int GiveBirthCost{10 * UE};
 
@@ -93,7 +94,7 @@ enum RenderTypes
     sun_energy,
     // DNK data
     max_energy,
-    def_front,
+    defence_attack,
     def_all,
     kill_ability,
     minerals_ability,
@@ -104,7 +105,10 @@ enum RenderTypes
     garb,
     lifetime,
     fertility,
-    dnk_energy_given_on_birth
+    dnk_energy_given_on_birth,
+    dnk_move_ability_sea,
+    dnk_move_ability_earth
+
 };
 
 enum Terrain {

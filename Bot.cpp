@@ -1,15 +1,6 @@
 #include "Bot.h"
 #include "MyTypes.h"
 
-
-
-//void Bot::RandomizeMarkers() {
-//    for (int &mutationMarker: mutationMarkers) {
-//        mutationMarker = rand();
-//    }
-//    nextMarker = 0;
-//}
-
 void Bot::RandomizeColor() {
     auto v = rand();
     int i = v % 3;
@@ -19,17 +10,6 @@ void Bot::RandomizeColor() {
     } else color[i] = std::max(color[i] - 10, 0.);
     ChangeColor(0, dnk.minerals_ability, dnk.ps_ability, dnk.kill_ability);
 }
-
-
-//void Bot::TotalMutation() {
-//    //RandomizeMarkers();
-//    repeat(3) ChangeMutationMarker();
-//
-//    brain.MutateHarsh();
-//
-//    RandomizeColor();
-//}
-
 
 void Bot::ChangeColor(const int str, int pref_b, int pref_g, int pref_r) {
     int i = rand() % 3;
@@ -106,7 +86,8 @@ BrainOutput Bot::think(BrainInput input) {
     //Input data
     {
         //Energy
-        brain.allValues[0][0] = static_cast<float>(1000 * energy / MaxPossibleEnergyForABot) / 1000.f;
+//        brain.allValues[0][0] = static_cast<float>(1000 * energy / dnk.max_energy) / 1000.f;
+        brain.allValues[0][0] = input.energy;
 
         //Sight
         brain.allValues[0][1] = input.vision;
@@ -115,10 +96,12 @@ BrainOutput Bot::think(BrainInput input) {
         brain.allValues[0][2] = input.isRelative;
 
         //Rotation
-        brain.allValues[0][3] = static_cast<float>(direction) / 7.0f;
+        brain.allValues[0][3] = input.rotation / 7.0f;
 
         //Height
-        brain.allValues[0][4] = 0; // TODO find what to use
+        brain.allValues[0][4] = input.goal_energy;
+        brain.allValues[0][4] = input.local_terrain;
+        brain.allValues[0][4] = input.direct_terrain;
     }
 
     //Compute
@@ -201,7 +184,7 @@ void Bot::draw(frame_type &image, int _xy, bool use_own_color) {
 
 
 void Bot::drawEnergy(frame_type &image, int _xy) {
-    auto c_ = energy * 255 / dnk.max_energy;
+    auto c_ = energy * 255 / (dnk.max_energy + 1);
     auto [xx, yy] = XYr(_xy);
     auto pt1 = cv::Point(FieldX + xx * FieldCellSize, FieldY + yy * FieldCellSize);
     auto pt2 = cv::Point(FieldX + xx * FieldCellSize + FieldCellSize, FieldY + yy * FieldCellSize + FieldCellSize);
@@ -299,14 +282,9 @@ Bot::Bot(int Energy, t_object &prototype) : brain(&prototype->brain),
     if (rand() % 5 == 0) return;
     for (int s = 0; s <= (rand() % (dnk.mutability_brain + 1)); s++) brain.MutateSlightly();
     if (rand() % 40 == 0) return;
-//    std::ostringstream mm;
-//    mm << " " << dnk.descript();
     for (auto i = 0; i <= dnk.mutability_body; i++) dnk.mutate(1);
     Mutate();
-//    for (int s = 0; s <= dnk.mutability_brain; s++) brain.MutateSlightly();
     auto diff = FindKinship(prototype);
-//    mm << " |> " << dnk.descript() << "  K:" <<  diff;
-//    std::cout << mm.str() << std::endl;
     ChangeColor((int) (255.f * diff), dnk.minerals_ability, dnk.ps_ability, dnk.kill_ability);
 }
 
@@ -320,11 +298,7 @@ Bot::Bot(int Energy) : weight(0) {
     direction = rand() % 8;
     //Randomize bot brain
     brain.Randomize();
-    //Set brain to dummy brain.SetDummy();
-    //Random color
     RandomizeColor();
-    //for (int m = 0; m < NeuronsInLayer*NumNeuronLayers; ++m)
-//    Mutate();
     for (auto i = 0; i < 10; i++) {
         dnk.mutate(i);
         dnk.mutate(i);
@@ -333,10 +307,6 @@ Bot::Bot(int Energy) : weight(0) {
     }
     RandomizeColor();
 }
-
-//BotNeuralNet *Bot::GetBrain() {
-//    return &brain;
-//}
 
 float Bot::FindKinship(t_object &stranger) const {
     return dnk.distance(stranger->dnk);
@@ -355,16 +325,18 @@ DNK &DNK::operator=(const DNK &dnk2) {
     max_life_time = dnk2.max_life_time;
     fertilityDelay = dnk2.fertilityDelay;
     energy_given_on_birth = dnk2.energy_given_on_birth;
+    move_ability_earth = dnk2.move_ability_earth;
+    move_ability_sea = dnk2.move_ability_sea;
 }
 
 void DNK::mutate(int d) {
-    int ix = rand() % 11;
+    int ix = rand() % 13;
     int diff = rand() % (d + 1);
     bool sign = rand() % 2;
     diff = (sign ? -1 : 1) * diff;
     switch (ix) {
         case 0: {
-            max_energy = std::max(0, max_energy + diff * 10);
+            max_energy = std::max(0, max_energy + diff * 100);
             return;
         }
         case 1: {
@@ -407,6 +379,14 @@ void DNK::mutate(int d) {
             energy_given_on_birth = std::max(0, energy_given_on_birth + diff);
             return;
         }
+        case 11: {
+            move_ability_earth = std::max(0, move_ability_earth + diff);
+            return;
+        }
+        case 12: {
+            move_ability_sea = std::max(0, move_ability_sea + diff);
+            return;
+        }
     }
 
 
@@ -420,5 +400,3 @@ void DNK::mutate(int d) {
         << " M:" << mutability_body << "/" << mutability_brain;
     return out.str();
 }
-
-#pragma clang diagnostic pop

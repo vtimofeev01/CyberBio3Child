@@ -21,6 +21,8 @@ class Field
     tbb_vec_obj boots;
     Terrain terrain[FieldCellsWidth][FieldCellsHeight];
     int sun_power[FieldCellsWidth][FieldCellsHeight];
+    int tmp_buf0draw[FieldCellsWidth][FieldCellsHeight];
+    int tmp_buf1draw[FieldCellsWidth][FieldCellsHeight];
     int tmp_buf2draw[FieldCellsWidth][FieldCellsHeight];
     int organic[FieldCellsWidth][FieldCellsHeight];
     std::vector<int> sequence;
@@ -72,15 +74,15 @@ public:
     [[nodiscard]] int GetSunEnergy(int x, int y) const;
 
     // show the sun power
-    static int drawAnyGrayScale(frame_type& image, int (*data)[FieldCellsWidth][FieldCellsHeight]);
+    int drawAnyGrayScale(frame_type &image);
 
     void updateSunEnergy();
 
-    void ShowMutations();
-
     bool AddObject(t_object &obj, int coord);
 
-    void fill_buf_2_draw(RenderTypes val);
+    int fill_buf_draw(RenderTypes val, int buf_n);
+
+    void drawAnyBGRScale(frame_type &image, int mx_0, int mx_1, int mx_2);
 };
 
 

@@ -54,7 +54,7 @@ void Field::ObjectTick1(int &i_xy) {
     BrainInput b_input;
 
     auto lookAt = boots[i_xy]->GetDirection();
-    b_input.energy = static_cast<float>(boots[i_xy]->energy);
+    b_input.energy = static_cast<float>(1000 * (boots[i_xy]->energy + 1) / (boots[i_xy]->dnk.max_energy + 1)) / 1000.f;
     b_input.rotation = static_cast<float>(boots[i_xy]->direction);
     //Desired destination,
     //that is what bot is looking at
@@ -188,7 +188,9 @@ void Field::ObjectTick2(int &i_xy) {
         mc += boots[i_xy]->dnk.def_front / 3;
         mc += boots[i_xy]->dnk.def_all;
         mc += boots[i_xy]->dnk.ps_ability;
-        if (terrain[i_x][i_y] == Terrain::sea) mc /= 4;
+        if (terrain[i_x][i_y] == Terrain::sea) { mc /= (2 * boots[i_xy]->dnk.move_ability_sea + 1); }
+        else { mc /= (boots[i_xy]->dnk.move_ability_earth + 1); }
+
         if (boots[i_xy]->energy > mc) {
             auto dir = boots[i_xy]->GetDirection();
             auto cx = i_x + dir.x;
@@ -277,9 +279,11 @@ inline void Field::tick_single_thread() {
     if (frame_number % 10 != 9) return;
     unsigned long E = sPS + sK + sM + 1;
     std::cout << " T/K/B/S:" << objectsTotal << "/" << kills << "/" << birth << "/" << steps << std::endl;
-    std::cout << "        income E=B/PS/K/M/O:" << "E:" << (seb + sefps + sefk + sefm + sefo) << "=" << seb << "/" << sefps
+    std::cout << "        income E=B/PS/K/M/O:" << "E:" << (seb + sefps + sefk + sefm + sefo) << "=" << seb << "/"
+              << sefps
               << "/" << sefk << "/" << sefm << "/" << sefo << std::endl;
-    std::cout << "        tick  E=D(F/A)+AB(M/K/PS)+En :" << "E:" << (ssfd + ssfa + ssma + sska + sspa + ssme) <<"="<< seb <<
+    std::cout << "        tick  E=D(F/A)+AB(M/K/PS)+En :" << "E:" << (ssfd + ssfa + ssma + sska + sspa + ssme) << "="
+              << seb <<
               "(" << ssfd << "/" << ssfa << ")+(" << ssma << "/" << sska << "/ " << sspa << ")+" << ssme << std::endl;
     std::cout << "        step  B A R M :" << "E:" << (ssb + ssa + ssr + ssm) << "=" <<
               " " << ssb << "/" << ssa << "/" << ssr << "/" << ssm << std::endl;
@@ -298,120 +302,94 @@ void Field::tick(int thisFrame) {
 void Field::draw(frame_type &image) {
     BGround.copyTo(image);
     std::vector<std::string> extra_data;
-    auto f = [&](int m_ix) {
-        if (boots[m_ix]) {
-            //Draw function switch, based on selected render type
-            switch (render) {
-                case natural:
-                    boots[m_ix]->draw(image, m_ix, true);
-                    break;
-                case predators:
-                    boots[m_ix]->drawPredators(image, m_ix);
-                    break;
-                case abilities:
-                    boots[m_ix]->draw(image, m_ix, false);
-                    break;
-                case energy:
-                    boots[m_ix]->drawEnergy(image, m_ix);
-                    break;
-            }
-        }
-    };
 
     switch (render) {
 
         case natural: {
-            tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
+            tbb::parallel_for(0, TotalCells, [&](auto m_ix){
+                if (boots[m_ix]) boots[m_ix]->draw(image, m_ix, true);
+            });
             break;
         }
         case predators: {
-            tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
+            tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, [&](auto m_ix){
+                if (boots[m_ix]) boots[m_ix]->drawPredators(image, m_ix);
+            });
             break;
         }
         case abilities: {
             extra_data.emplace_back("Character");
-            tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
-        }
-            break;
+            tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, [&](auto m_ix){
+                if (boots[m_ix]) boots[m_ix]->draw(image, m_ix, false);
+        });
+            break;}
         case energy: {
-            tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
+            tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight,[&](auto m_ix){
+                if (boots[m_ix]) boots[m_ix]->drawEnergy(image, m_ix);
+            });
             break;
         }
         case sun_energy: {
-            auto max_val = drawAnyGrayScale(image, &sun_power);
-//            std::cout << max_val << std::endl;
+            memcpy(tmp_buf2draw, sun_power, sizeof(sun_power));
+            auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
             v << "max val:" << max_val;
             extra_data.emplace_back("SUN");
             extra_data.emplace_back(v.str());
-        }
             break;
+        }
         case max_energy: {
-            fill_buf_2_draw(max_energy);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            fill_buf_draw(max_energy, 2);
+            auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
             v << "max val:" << max_val;
             extra_data.emplace_back("max_energy");
             extra_data.emplace_back(v.str());
-        }
             break;
-        case def_front: {
-            fill_buf_2_draw(def_front);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+        }
+        case defence_attack: {
+            auto daf = fill_buf_draw(defence_attack, 0);
+            auto daa = fill_buf_draw(def_all, 1);
+            auto dka = fill_buf_draw(kill_ability, 2);
+            auto mv = std::max(daf, daa);
+            mv = std::max(daa, dka);
+            drawAnyBGRScale(image, mv, mv, mv);
             std::ostringstream v;
-            v << "max val:" << max_val;
-            extra_data.emplace_back("def_front");
+            v << "max front def.: " << daf << " around def.: " << daa << " attack: " << dka;
+            extra_data.emplace_back("FD AD KA");
             extra_data.emplace_back(v.str());
-        }
             break;
-        case def_all: {
-            fill_buf_2_draw(def_all);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
-            std::ostringstream v;
-            v << "max val:" << max_val;
-            extra_data.emplace_back("def_all");
-            extra_data.emplace_back(v.str());
         }
-            break;
-        case kill_ability: {
-            fill_buf_2_draw(kill_ability);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
-            std::ostringstream v;
-            v << "max val:" << max_val;
-            extra_data.emplace_back("kill_ability");
-            extra_data.emplace_back(v.str());
-        }
-            break;
         case minerals_ability: {
-            fill_buf_2_draw(minerals_ability);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            fill_buf_draw(minerals_ability, 2);
+            auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
             v << "max val:" << max_val;
             extra_data.emplace_back("minerals_ability");
             extra_data.emplace_back(v.str());
-        }
             break;
+        }
         case ps_ability: {
-            fill_buf_2_draw(ps_ability);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            fill_buf_draw(ps_ability, 2);
+            auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
             v << "max val:" << max_val;
             extra_data.emplace_back("ps_ability");
             extra_data.emplace_back(v.str());
-        }
             break;
+        }
         case mutability_body: {
-            fill_buf_2_draw(mutability_body);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            fill_buf_draw(mutability_body, 2);
+            auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
             v << "max val:" << max_val;
             extra_data.emplace_back("mutability_body");
             extra_data.emplace_back(v.str());
-        }
             break;
+        }
         case mutability_brain: {
-            fill_buf_2_draw(mutability_brain);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            fill_buf_draw(mutability_brain, 2);
+            auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
             v << "max val:" << max_val;
             extra_data.emplace_back("mutability_brain");
@@ -419,8 +397,8 @@ void Field::draw(frame_type &image) {
         }
             break;
         case max_life_time: {
-            fill_buf_2_draw(max_life_time);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            fill_buf_draw(max_life_time, 2);
+            auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
             v << "max val:" << max_val;
             extra_data.emplace_back("max_life_time");
@@ -428,8 +406,8 @@ void Field::draw(frame_type &image) {
         }
             break;
         case ::garb: {
-            fill_buf_2_draw(garb);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            fill_buf_draw(garb, 2);
+            auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
             v << "max val:" << max_val;
             extra_data.emplace_back("Garbage");
@@ -437,8 +415,8 @@ void Field::draw(frame_type &image) {
         }
             break;
         case lifetime: {
-            fill_buf_2_draw(lifetime);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            fill_buf_draw(lifetime, 2);
+            auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
             v << "max val:" << max_val;
             extra_data.emplace_back("lifetime");
@@ -446,8 +424,8 @@ void Field::draw(frame_type &image) {
         }
             break;
         case fertility: {
-            fill_buf_2_draw(fertility);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            fill_buf_draw(fertility, 2);
+            auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
             v << "max val:" << max_val;
             extra_data.emplace_back("fertility");
@@ -455,14 +433,26 @@ void Field::draw(frame_type &image) {
         }
             break;
         case dnk_energy_given_on_birth: {
-            fill_buf_2_draw(dnk_energy_given_on_birth);
-            auto max_val = drawAnyGrayScale(image, &tmp_buf2draw);
+            fill_buf_draw(dnk_energy_given_on_birth, 2);
+            auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
             v << "max val:" << max_val;
             extra_data.emplace_back("dnk_energy_given_on_birth");
             extra_data.emplace_back(v.str());
         }
             break;
+        case dnk_move_ability_sea:
+            auto mas = fill_buf_draw(dnk_move_ability_sea, 0);
+            auto mae = fill_buf_draw(dnk_move_ability_earth, 1);
+            auto dka = fill_buf_draw(dnk_move_ability_earth, 2);
+            auto mv = std::max(mas, mae);
+            drawAnyBGRScale(image, mv, mv, 1000000);
+            std::ostringstream v;
+            v << "max move on seaf.: " << mas << " earth.: " << mae;
+            extra_data.emplace_back("Move sea + earth");
+            extra_data.emplace_back(v.str());
+            break;
+
     }
 
     Annotate(image, extra_data, cv::Scalar(0, 0, 255));
@@ -504,7 +494,6 @@ Field::Field() {
             for (auto x = 0; x < FieldCellsWidth; x += tbb_step)
                 for (auto y = 0; y < FieldCellsHeight; y += tbb_step) {
                     xy = (x + x0) * FieldCellsWidth + y + y0;
-//                    assert(std::find(sequence.begin(), sequence.end(), (xy)) == sequence.end());
                     sequence.push_back(xy);
                     main_ix++;
                 }
@@ -534,10 +523,8 @@ void Field::NextView() {
     else if (render == RenderTypes::predators) render = RenderTypes::abilities;
     else if (render == RenderTypes::abilities) render = RenderTypes::sun_energy;
     else if (render == RenderTypes::sun_energy) render = RenderTypes::max_energy;
-    else if (render == RenderTypes::max_energy) render = RenderTypes::def_front;
-    else if (render == RenderTypes::def_front) render = RenderTypes::def_all;
-    else if (render == RenderTypes::def_all) render = RenderTypes::kill_ability;
-    else if (render == RenderTypes::kill_ability) render = RenderTypes::minerals_ability;
+    else if (render == RenderTypes::max_energy) render = RenderTypes::defence_attack;
+    else if (render == RenderTypes::defence_attack) render = RenderTypes::minerals_ability;
     else if (render == RenderTypes::minerals_ability) render = RenderTypes::ps_ability;
     else if (render == RenderTypes::ps_ability) render = RenderTypes::mutability_body;
     else if (render == RenderTypes::mutability_body) render = RenderTypes::mutability_brain;
@@ -546,7 +533,8 @@ void Field::NextView() {
     else if (render == RenderTypes::garb) render = RenderTypes::lifetime;
     else if (render == RenderTypes::lifetime) render = RenderTypes::fertility;
     else if (render == RenderTypes::fertility) render = RenderTypes::dnk_energy_given_on_birth;
-    else if (render == RenderTypes::dnk_energy_given_on_birth) render = RenderTypes::natural;
+    else if (render == RenderTypes::dnk_energy_given_on_birth) render = RenderTypes::dnk_move_ability_sea;
+    else if (render == RenderTypes::dnk_move_ability_sea) render = RenderTypes::natural;
 }
 
 void Field::Annotate(frame_type &image, const std::vector<std::string> &extra, const cv::Scalar &color) const {
@@ -571,43 +559,6 @@ void Field::Annotate(frame_type &image, const std::vector<std::string> &extra, c
         cv::putText(image, l, text_org, font, font_size,
                     color, font_thickness, 8);
     }
-}
-
-
-void Field::ShowMutations() {
-    int max_energy{0};
-    int protetction_front{0};
-    int protetction_others{0};
-    int atack_ability{0};
-    int minerals_ability{0};
-    int ps_ability{0};
-    int mutability_body{0};
-    int mutability_brain{0};
-    int max_life_time{0};
-    for (auto ix = 0; ix < FieldCellsWidth * FieldCellsHeight; ix++) {
-        if (boots[ix] == nullptr) continue;
-        max_energy = std::max(max_energy, boots[ix]->dnk.max_energy);
-        protetction_front = std::max(protetction_front, boots[ix]->dnk.def_front);
-        protetction_others = std::max(protetction_others, boots[ix]->dnk.def_all);
-        atack_ability = std::max(atack_ability, boots[ix]->dnk.kill_ability);
-        minerals_ability = std::max(minerals_ability, boots[ix]->dnk.minerals_ability);
-        ps_ability = std::max(ps_ability, boots[ix]->dnk.ps_ability);
-        mutability_body = std::max(mutability_body, boots[ix]->dnk.mutability_body);
-        mutability_brain = std::max(mutability_brain, boots[ix]->dnk.mutability_brain);
-        max_life_time = std::max(max_life_time, boots[ix]->dnk.max_life_time);
-    }
-    // TODO out mutation map
-    // TODO add solar map
-    // TODO out bot descr
-//    for (auto x = 0; x < FieldCellsWidth; x++)
-//        for (auto y = 0; y < FieldCellsHeight; y++) {
-//            if (img.at<uchar>(x, y) > 127) {
-//                terrain[x][y] = Terrain::earth;
-//            } else {
-//                terrain[x][y] = Terrain::sea;
-//            }
-//        }
-
 }
 
 void Field::updateSunEnergy() {
@@ -640,20 +591,19 @@ int Field::GetSunEnergy(int x, int y) const {
     return sun_power[x][y];
 }
 
-int Field::drawAnyGrayScale(frame_type &image, int (*data)[FieldCellsWidth][FieldCellsHeight]) {
-
+int Field::drawAnyGrayScale(frame_type &image) {
     int max_val{-10000};
     int min_val{100000000};
-    for (auto x = 0; x < FieldCellsWidth; x++)
-        for (auto y = 0; y < FieldCellsHeight; y++) {
-            max_val = std::max(max_val, (*data)[x][y]);
-            min_val = std::min(min_val, (*data)[x][y]);
+    for (auto & x : tmp_buf2draw)
+        for (int & y : x) {
+            max_val = std::max(max_val, y);
+            min_val = std::min(min_val, y);
         }
     int c_;
 //    for (auto x = 0; x < FieldCellsWidth; x++)
     tbb::parallel_for(0, FieldCellsWidth, [&](auto x) {
         for (auto y = 0; y < FieldCellsHeight; y++) {
-            c_ = (*data)[x][y] * 255 / (max_val + 1);
+            c_ = tmp_buf2draw[x][y] * 255 / (max_val + 1);
             cv::rectangle(image,
                           cv::Point(FieldX + x * FieldCellSize + 1, FieldY + y * FieldCellSize + 1),
                           cv::Point(FieldX + x * FieldCellSize + FieldCellSize - 1,
@@ -664,15 +614,35 @@ int Field::drawAnyGrayScale(frame_type &image, int (*data)[FieldCellsWidth][Fiel
         }
     });
     return max_val;
-
 }
 
-void Field::fill_buf_2_draw(RenderTypes val) {
-    int t_val, o_val;
+void Field::drawAnyBGRScale(frame_type &image, int mx_0, int mx_1, int mx_2) {
+
+    int c_;
+//    for (auto x = 0; x < FieldCellsWidth; x++)
+    tbb::parallel_for(0, FieldCellsWidth, [&](auto x) {
+        for (auto y = 0; y < FieldCellsHeight; y++) {
+            cv::rectangle(image,
+                          cv::Point(FieldX + x * FieldCellSize + 1, FieldY + y * FieldCellSize + 1),
+                          cv::Point(FieldX + x * FieldCellSize + FieldCellSize - 1,
+                                    FieldY + y * FieldCellSize + FieldCellSize - 1),
+                          cv::Scalar(
+                                  tmp_buf0draw[x][y] * 255 / (mx_0 + 1),
+                                  tmp_buf1draw[x][y] * 255 / (mx_0 + 1),
+                                  tmp_buf2draw[x][y] * 255 / (mx_0 + 1)
+                          ),
+                          -1,
+                          cv::LINE_8, 0);
+        }
+    });
+}
+
+int Field::fill_buf_draw(RenderTypes val, int buf_n) {
+    int t_val, o_val, max_val{0};
     for (auto x = 0; x < FieldCellsWidth; x++)
         for (auto y = 0; y < FieldCellsHeight; y++) {
             t_val = XY(x, y);
-            if (boots[t_val] == nullptr) { tmp_buf2draw[x][y] = 0; }
+            if (boots[t_val] == nullptr) { o_val = 0; }
             else {
                 switch (val) {
                     case natural:
@@ -686,7 +656,7 @@ void Field::fill_buf_2_draw(RenderTypes val) {
                     case max_energy:
                         o_val = boots[t_val]->dnk.max_energy;
                         break;
-                    case def_front:
+                    case defence_attack:
                         o_val = boots[t_val]->dnk.def_front;
                         break;
                     case def_all:
@@ -722,15 +692,33 @@ void Field::fill_buf_2_draw(RenderTypes val) {
                     case dnk_energy_given_on_birth:
                         o_val = boots[t_val]->dnk.energy_given_on_birth;
                         break;
+                    case abilities:
+                        break;
+                    case dnk_move_ability_sea:
+                        o_val = boots[t_val]->dnk.move_ability_sea;
+                        break;
+                    case dnk_move_ability_earth:
+                        o_val = boots[t_val]->dnk.move_ability_earth;
+                        break;
                 }
-                tmp_buf2draw[x][y] = o_val;
+            }
+            max_val = std::max(max_val, o_val);
+
+            switch (buf_n) {
+                case 0:
+                    tmp_buf0draw[x][y] = o_val;
+                    break;
+                case 1:
+                    tmp_buf1draw[x][y] = o_val;
+                    break;
+                case 2:
+                    tmp_buf2draw[x][y] = o_val;
+                    break;
             }
 
         }
+    return max_val;
 }
 
-
-
-
-// TODO add organic after death
 // TODO prpbably add organic on photosynthes
+// TODO prpbably add for hunidity
