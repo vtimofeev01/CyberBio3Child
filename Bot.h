@@ -24,6 +24,7 @@ enum EnergySource {
     kills,
     mineral,
     ES_garbage,
+    birth,
 };
 class Bot;
 using TObject = Bot;
@@ -122,6 +123,26 @@ public:
     unsigned long stat_kills = 0;
     unsigned long stat_birth = 0;
     unsigned long stat_ps = 0;
+
+    //øò_ûåóç Energy acquired from different sources
+    unsigned long step_energyBirth       = 0;
+    unsigned long step_energyFromPS      = 0;
+    unsigned long step_energyFromKills    = 0;
+    unsigned long step_energyFromMinerals = 0;
+    unsigned long step_energyFromOrganic = 0;
+
+    unsigned long step_spend_front_def   = 0;
+    unsigned long step_spend_front_all   = 0;
+    unsigned long step_spend_mineral_ab  = 0;
+    unsigned long step_spend_kill_ab     = 0;
+    unsigned long step_spend_ps_ab       = 0;
+    unsigned long step_spend_max_en      = 0;
+    unsigned long step_spend_birth       = 0;
+    unsigned long step_spend_attack      = 0;
+    unsigned long step_spend_rotate      = 0;
+    unsigned long step_spend_move        = 0;
+
+
 
     int direction{0};
 public:

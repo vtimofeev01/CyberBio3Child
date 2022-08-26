@@ -20,7 +20,7 @@ file (GLOB MAIN_HPP *.hpp)
 add_executable(${TARGET_NAME} ${MAIN_SRC} ${MAIN_HEADERS} ${MAIN_HPP})
 
 #set_target_properties(${TARGET_NAME} PROPERTIES CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -pthread -00")
-set_target_properties(${TARGET_NAME} PROPERTIES CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -pthread -O3 -mavx2 -ffast-math"")
+set_target_properties(${TARGET_NAME} PROPERTIES CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -pthread -O3 -mavx2 -ffast-math")
 set_target_properties(${TARGET_NAME} PROPERTIES CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -pthread -O3 -mavx2 -ffast-math")
 target_compile_options(${TARGET_NAME} PRIVATE -Wno-deprecated-declarations -Wno-tautological-pointer-compare)
 

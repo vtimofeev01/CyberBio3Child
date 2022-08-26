@@ -137,18 +137,45 @@ BrainOutput Bot::think(BrainInput input) {
 }
 
 int Bot::tick(Terrain terr) {
-    int loss{0};
+
+    step_energyBirth       = 0;
+    step_energyFromPS      = 0;
+    step_energyFromKills    = 0;
+    step_energyFromMinerals = 0;
+    step_energyFromOrganic = 0;
+    step_spend_front_def   = 0;
+    step_spend_front_all   = 0;
+    step_spend_mineral_ab  = 0;
+    step_spend_kill_ab     = 0;
+    step_spend_ps_ab       = 0;
+    step_spend_max_en      = 0;
+    step_spend_birth       = 0;
+    step_spend_attack      = 0;
+    step_spend_rotate      = 0;
+    step_spend_move        = 0;
+
+
+    unsigned long loss{0};
     const int pen_factor = 1;
     lifetime++;
-    loss += EveryTickEnergyPenalty;
-    loss += dnk.def_front * pen_factor / 2;
-    loss += dnk.def_all * pen_factor;
-    loss += dnk.minerals_ability * pen_factor;
-    loss += dnk.kill_ability * pen_factor;
-    loss += dnk.ps_ability * pen_factor;
-    loss += dnk.max_energy / 100;
-    if (terr == Terrain::sea) loss /=2;
-    energy -=loss;
+    step_spend_front_def = dnk.def_front * pen_factor / 2;
+    step_spend_front_all = dnk.def_all * pen_factor;
+    step_spend_mineral_ab = dnk.minerals_ability * pen_factor;
+    step_spend_kill_ab = dnk.kill_ability * pen_factor;
+    step_spend_ps_ab = dnk.ps_ability * pen_factor;
+    step_spend_max_en = dnk.max_energy / 100;
+
+    if (terr == Terrain::sea) {
+        step_spend_front_def /= 2;
+        step_spend_front_all /= 2;
+        step_spend_mineral_ab /= 2;
+        step_spend_kill_ab /= 2;
+        step_spend_ps_ab /= 2;
+        step_spend_max_en /= 2;
+    }
+    loss = step_spend_front_def + step_spend_front_all + step_spend_mineral_ab + step_spend_kill_ab +
+            step_spend_ps_ab + step_spend_max_en;
+    energy -= static_cast<int>(loss);
     if (((energy) <= 0) || (lifetime >= MaxBotLifetime))
         return 1;
 
@@ -163,7 +190,7 @@ void Bot::draw(frame_type &image, int _xy, bool use_own_color) {
     cv::rectangle(image,
                   pt1,
                   pt2,
-                  use_own_color? color: ab_color,
+                  use_own_color ? color : ab_color,
                   -1,
                   cv::LINE_8, 0);
 
@@ -223,19 +250,25 @@ int Bot::GiveEnergy(int num, EnergySource src) {
     int out{0};
 
     if (energy > dnk.max_energy) {
-        out = dnk.max_energy - energy;
+        out = energy - dnk.max_energy;
         energy = dnk.max_energy;
 
     }
 
     if (src == PS) {
         energyFromPS += num;
+        step_energyFromPS = num;
     } else if (src == kills) {
         energyFromKills += num;
+        step_energyFromKills = num;
     } else if (src == mineral) {
         energyFromMinerals += num;
+        step_energyFromMinerals = num;
     } else if (src == ES_garbage) {
         energyFromOrganic += num;
+        step_energyFromOrganic = num;
+    } else if (src == birth) {
+        step_energyBirth = num;
     }
     return out;
 }
@@ -255,7 +288,7 @@ oPoint Bot::GetDirection() const {
 Bot::Bot(int Energy, t_object &prototype) : brain(&prototype->brain),
                                             weight(0) {
 
-    energy = Energy;
+    energy = GiveEnergy(Energy, EnergySource::birth);
     stunned = StunAfterBirth;
     fertilityDelay = prototype->dnk.fertilityDelay;
     energyFromPS = 0;
@@ -264,7 +297,7 @@ Bot::Bot(int Energy, t_object &prototype) : brain(&prototype->brain),
     color = prototype->color;
     direction = rand() % 8;
     if (rand() % 5 == 0) return;
-    for (int s = 0; s <=( rand()%(dnk.mutability_brain + 1)); s++) brain.MutateSlightly();
+    for (int s = 0; s <= (rand() % (dnk.mutability_brain + 1)); s++) brain.MutateSlightly();
     if (rand() % 40 == 0) return;
 //    std::ostringstream mm;
 //    mm << " " << dnk.descript();
@@ -279,7 +312,7 @@ Bot::Bot(int Energy, t_object &prototype) : brain(&prototype->brain),
 
 
 Bot::Bot(int Energy) : weight(0) {
-    energy = Energy;
+    energy = GiveEnergy(Energy, EnergySource::birth);
     stunned = StunAfterBirth;
     fertilityDelay = FertilityDelay;
     energyFromPS = 0;

@@ -113,6 +113,7 @@ void Field::ObjectTick2(int &i_xy) {
                                      boots[i_xy]);
                 AddObject(val, XY(freeSpace.x, freeSpace.y));
                 boots[i_xy]->stat_birth++;
+                boots[i_xy]->step_spend_birth = GiveBirthCost;
             }
         }
     }
@@ -126,7 +127,7 @@ void Field::ObjectTick2(int &i_xy) {
         auto cy = i_y + dir.y;
         auto cxy = XY(cx, cy);
         assert(cxy != i_xy);
-        if (IsInBounds(cx, cy) &&( boots[cxy] != nullptr)) {
+        if (IsInBounds(cx, cy) && (boots[cxy] != nullptr)) {
             auto defense = boots[cxy]->dnk.def_all;
             // see where looks the attacked
             auto cxy_directon = boots[cxy]->GetDirection();
@@ -135,6 +136,7 @@ void Field::ObjectTick2(int &i_xy) {
             if ((cx_d_x == i_x) && (cx_d_y == i_y)) defense += boots[cxy]->dnk.def_front;
             auto attack_cost = AttackCost * (boots[i_xy]->dnk.kill_ability + 1) / (defense + 1);
             if (boots[i_xy]->energy > attack_cost) { //Kill an object
+                boots[i_xy]->step_spend_attack = attack_cost;
                 boots[i_xy]->stat_kills++;
                 boots[i_xy]->TakeEnergy(attack_cost);
                 organic[i_x][i_y] += boots[i_xy]->GiveEnergy(boots[cxy]->energy, kills);
@@ -149,6 +151,7 @@ void Field::ObjectTick2(int &i_xy) {
         if (boots[i_xy]->energy > RotateCost) {
             boots[i_xy]->Rotate(bots_ideas.rotate);
             boots[i_xy]->TakeEnergy(RotateCost);
+            boots[i_xy]->step_spend_rotate = RotateCost;
         }
     }
 
@@ -165,9 +168,11 @@ void Field::ObjectTick2(int &i_xy) {
         organic[i_x][i_y] += boots[i_xy]->GiveEnergy(terrain[i_x][i_y] == Terrain::earth ?
                                                      FoodbaseMineralsTerrain : FoodbaseMineralsSea,
                                                      EnergySource::mineral);
+
+
         auto till_limit = boots[i_xy]->dnk.max_energy - boots[i_xy]->energy;
         auto to_take = std::min(till_limit, organic[i_x][i_y]);
-        if (to_take) {
+        if (to_take > 0) {
             boots[i_xy]->GiveEnergy(to_take, EnergySource::ES_garbage);
             organic[i_x][i_y] -= to_take;
             assert(organic[i_x][i_y] >= 0);
@@ -192,6 +197,7 @@ void Field::ObjectTick2(int &i_xy) {
             if (IsInBounds(cx, cy) && (boots[c_xy] == nullptr)) {
                 boots[i_xy]->stat_steps++;
                 boots[i_xy]->TakeEnergy(MoveCost);
+                boots[i_xy]->step_spend_move = MoveCost;
                 boots[c_xy] = std::move(boots[i_xy]);
             } else {
                 boots[i_xy] = nullptr;
@@ -214,28 +220,13 @@ inline void Field::tick_single_thread() {
                 auto o_tick = boots[i_xy]->tick(terrain[x_][y_]);
                 if (o_tick == 1) {
                     organic[x_][y_] = GiveBirthCost + boots[i_xy]->energy;
-                    // too old or expired
                     boots[i_xy] = nullptr;
                     return;
                 }
-//                ObjectTick1(i_xy);
             }
         }
     };
 
-    auto f11 = [&](auto &i_xy) {
-        if (boots[i_xy]) {
-            auto [x_, y_] = XYr(i_xy);
-            auto o_tick = boots[i_xy]->tick(terrain[x_][y_]);
-            if (o_tick == 1) {
-                organic[x_][y_] = GiveBirthCost + boots[i_xy]->energy;
-                // too old or expired
-                boots[i_xy] = nullptr;
-                return;
-            }
-            ObjectTick1(i_xy);
-        }
-    };
     const auto total = FieldCellsWidth * FieldCellsHeight;
 
     auto f2 = [&](int i_xy) {
@@ -248,29 +239,50 @@ inline void Field::tick_single_thread() {
     };
     tbb::parallel_for(tbb::blocked_range<int>(0, total), tbb_f1);
     tbb::parallel_for(0, total, [&](auto ix) { if (boots[ix])ObjectTick1(ix); });
-    //    for (auto i = 0; i < total; i++) f11(i);
-    const auto tbb_step = total / 9;
+    const auto tbb_step_ = total / 9;
     //    for (auto i = 0; i < total; i++) f2(i);
-    for (auto ii = 0; ii < total; ii += tbb_step) {
-        tbb::parallel_for(ii, ii + tbb_step, f2);
+    for (auto ii = 0; ii < total; ii += tbb_step_) {
+        tbb::parallel_for(ii, ii + tbb_step_, f2);
     }
 
-    unsigned long sPS{0}, sK{0}, sM{0}, kills{0}, birth{0}, steps{0};
+    unsigned long sPS{0}, sK{0}, sM{0}, kills{0}, birth{0}, steps{0},
+            seb{0}, sefps{0}, sefk{0}, sefm{0}, sefo{0}, ssfd{0}, ssfa{}, ssma{0},
+            sska{0}, sspa{0}, ssme{0}, ssb{0}, ssa{0}, ssr{0}, ssm{0};
     for (auto i = 0; i < total; i++) {
         if (boots[i] == nullptr) continue;
-        sPS += boots[i]->energyFromPS;
-        sK += boots[i]->energyFromKills;
-        sM += boots[i]->energyFromMinerals;
+//        sPS += boots[i]->energyFromPS;
+//        sK += boots[i]->energyFromKills;
+//        sM += boots[i]->energyFromMinerals;
+        seb += boots[i]->step_energyBirth;
+        sefps += boots[i]->step_energyFromPS;
+        sefk += boots[i]->step_energyFromKills;
+        sefm += boots[i]->step_energyFromMinerals;
+        sefo += boots[i]->step_energyFromOrganic;
+        ssfd += boots[i]->step_spend_front_def;
+        ssfa += boots[i]->step_spend_front_all;
+        ssma += boots[i]->step_spend_mineral_ab;
+        sska += boots[i]->step_spend_kill_ab;
+        sspa += boots[i]->step_spend_ps_ab;
+        ssme += boots[i]->step_spend_max_en;
+        ssb += boots[i]->step_spend_birth;
+        ssa += boots[i]->step_spend_attack;
+        ssr += boots[i]->step_spend_rotate;
+        ssm += boots[i]->step_spend_move;
+
+
         kills += boots[i]->stat_kills;
         birth += boots[i]->stat_birth;
         steps += boots[i]->stat_steps;
     }
     if (frame_number % 10 != 9) return;
     unsigned long E = sPS + sK + sM + 1;
-    std::cout << " Total:" << E
-              << "PS:" << 100 * sPS / E << " Kills:" << 100 * sK / E << " Minerals:" << 100 * sM / E
-              << " kills:" << kills << " birth:" << birth << " steps:" << steps
-              << std::endl;
+    std::cout << " T/K/B/S:" << objectsTotal << "/" << kills << "/" << birth << "/" << steps << std::endl;
+    std::cout << "        income E=B/PS/K/M/O:" << "E:" << (seb + sefps + sefk + sefm + sefo) << "=" << seb << "/" << sefps
+              << "/" << sefk << "/" << sefm << "/" << sefo << std::endl;
+    std::cout << "        tick  E=D(F/A)+AB(M/K/PS)+En :" << "E:" << (ssfd + ssfa + ssma + sska + sspa + ssme) <<"="<< seb <<
+              "(" << ssfd << "/" << ssfa << ")+(" << ssma << "/" << sska << "/ " << sspa << ")+" << ssme << std::endl;
+    std::cout << "        step  B A R M :" << "E:" << (ssb + ssa + ssr + ssm) << "=" <<
+              " " << ssb << "/" << ssa << "/" << ssr << "/" << ssm << std::endl;
 }
 
 //Tick function
@@ -316,7 +328,7 @@ void Field::draw(frame_type &image) {
             tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
             break;
         }
-        case abilities:{
+        case abilities: {
             extra_data.emplace_back("Character");
             tbb::parallel_for(0, FieldCellsWidth * FieldCellsHeight, f);
         }
@@ -639,18 +651,18 @@ int Field::drawAnyGrayScale(frame_type &image, int (*data)[FieldCellsWidth][Fiel
         }
     int c_;
 //    for (auto x = 0; x < FieldCellsWidth; x++)
-        tbb::parallel_for(0, FieldCellsWidth, [&](auto x) {
-            for (auto y = 0; y < FieldCellsHeight; y++) {
-                c_ = (*data)[x][y] * 255 / (max_val + 1);
-                cv::rectangle(image,
-                              cv::Point(FieldX + x * FieldCellSize + 1, FieldY + y * FieldCellSize + 1),
-                              cv::Point(FieldX + x * FieldCellSize + FieldCellSize - 1,
-                                        FieldY + y * FieldCellSize + FieldCellSize - 1),
-                              cv::Scalar(c_, c_, c_),
-                              -1,
-                              cv::LINE_8, 0);
-            }
-        });
+    tbb::parallel_for(0, FieldCellsWidth, [&](auto x) {
+        for (auto y = 0; y < FieldCellsHeight; y++) {
+            c_ = (*data)[x][y] * 255 / (max_val + 1);
+            cv::rectangle(image,
+                          cv::Point(FieldX + x * FieldCellSize + 1, FieldY + y * FieldCellSize + 1),
+                          cv::Point(FieldX + x * FieldCellSize + FieldCellSize - 1,
+                                    FieldY + y * FieldCellSize + FieldCellSize - 1),
+                          cv::Scalar(c_, c_, c_),
+                          -1,
+                          cv::LINE_8, 0);
+        }
+    });
     return max_val;
 
 }
