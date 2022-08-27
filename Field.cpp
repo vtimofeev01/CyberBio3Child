@@ -1,7 +1,7 @@
 #include <tbb/parallel_for.h>
 #include "Field.h"
 #include "MyTypes.h"
-#include <math.h>
+#include <cmath>
 
 oPoint Field::FindFreeNeighbourCell(int X, int Y) {
     //If cell itself is empty
@@ -49,7 +49,10 @@ bool Field::AddObject(t_object &obj, int coord) {
 
 void Field::ObjectTick1(int &i_xy) {
     assert(boots[i_xy] != nullptr);
+
     auto [i_x, i_y] = XYr(i_xy);
+    assert(organic[i_x][i_y] >= 0);
+    assert(organic[i_x][i_y] >= 0);
     //Fill brain input structure
     BrainInput b_input;
 
@@ -74,9 +77,7 @@ void Field::ObjectTick1(int &i_xy) {
         if (boots[cxy] == nullptr) {
             b_input.vision = 0.0f; //0 if empty
             b_input.isRelative = -1.f;
-            b_input.goal_energy = static_cast<float>(sun_power[cx][cy] +
-                                                     terrain[cx][cy] == Terrain::earth ? FoodbaseMineralsTerrain
-                                                                                       : FoodbaseMineralsSea);
+
         } else {
             assert(boots[cxy] != nullptr);
             //0.5 if someone in that cell
@@ -84,12 +85,19 @@ void Field::ObjectTick1(int &i_xy) {
             b_input.isRelative = boots[i_xy]->FindKinship(boots[cxy]);
             b_input.goal_energy = static_cast<float>(boots[cxy]->energy);
         }
+        auto min_terra = terrain[cx][cy] == Terrain::earth ? FoodbaseMineralsTerrain
+                                                     : FoodbaseMineralsSea;
+        b_input.goal_energy += static_cast<float>(sun_power[cx][cy] + min_terra);
     }
+    assert(organic[i_x][i_y] >= 0);
+    assert(organic[i_x][i_y] >= 0);
     b_input.local_terrain = terrain[i_x][i_y];
     b_input.direct_terrain = terrain[cx][cy];
     assert(boots[i_xy] != nullptr);
     //Bot brain does its stuff
     boots[i_xy]->bots_ideas = boots[i_xy]->think(b_input);
+    assert(organic[i_x][i_y] >= 0);
+    assert(organic[i_x][i_y] >= 0);
 
 }
 
@@ -97,6 +105,8 @@ void Field::ObjectTick2(int &i_xy) {
     if (boots[i_xy] == nullptr) return;
     auto bots_ideas = boots[i_xy]->bots_ideas;
     auto [i_x, i_y] = XYr(i_xy);
+    assert(organic[i_x][i_y] >= 0);
+    assert(organic[i_x][i_y] < 50000 );
     //Multiply
     for (int b = 0; b < bots_ideas.divide; ++b) {
         //Dies if energy is too low
@@ -109,16 +119,17 @@ void Field::ObjectTick2(int &i_xy) {
             auto freeSpace = FindFreeNeighbourCell(i_x, i_y);
             if (IsInBounds(freeSpace)) {
                 boots[i_xy]->TakeEnergy(birthE);
-                auto val = MAKE_TObj(EnergyPassedToAChild,
+                auto val = MAKE_TObj(boots[i_xy]->dnk.energy_given_on_birth,
                                      boots[i_xy]);
                 AddObject(val, XY(freeSpace.x, freeSpace.y));
                 boots[i_xy]->stat_birth++;
-                boots[i_xy]->step_spend_birth = GiveBirthCost;
+                boots[i_xy]->step_spend_birth = GiveBirthCost + boots[i_xy]->dnk.energy_given_on_birth;
             }
         }
     }
     assert(boots[i_xy] != nullptr);
-
+    assert(organic[i_x][i_y] >= 0);
+    assert(organic[i_x][i_y] < 50000 );
     //Then attack
     if (bots_ideas.attack) {
         // No attack if low energy
@@ -134,17 +145,26 @@ void Field::ObjectTick2(int &i_xy) {
             auto cx_d_x = cx + cxy_directon.x;
             auto cx_d_y = cy + cxy_directon.y;
             if ((cx_d_x == i_x) && (cx_d_y == i_y)) defense += boots[cxy]->dnk.def_front;
-            auto attack_cost = AttackCost * (boots[i_xy]->dnk.kill_ability + 1) / (defense + 1);
+            auto attack_cost = AttackCost * (defense + 1) /(boots[i_xy]->dnk.kill_ability + 1) ;
+            assert(attack_cost > 0);
             if (boots[i_xy]->energy > attack_cost) { //Kill an object
                 boots[i_xy]->step_spend_attack = attack_cost;
                 boots[i_xy]->stat_kills++;
                 boots[i_xy]->TakeEnergy(attack_cost);
-                organic[i_x][i_y] += boots[i_xy]->GiveEnergy(boots[cxy]->energy, kills);
+                auto goes_to_organic = boots[i_xy]->GiveEnergy(boots[cxy]->energy, kills);
+                organic[i_x][i_y] += goes_to_organic;
                 boots[cxy] = nullptr;
+                assert(organic[i_x][i_y] >= 0);
+                assert(organic[i_x][i_y] < 50000 );
             }
+            assert(organic[i_x][i_y] >= 0);
+            assert(organic[i_x][i_y] < 50000 );
         }
+        assert(organic[i_x][i_y] >= 0);
+        assert(organic[i_x][i_y] < 50000 );
     }
-
+    assert(organic[i_x][i_y] >= 0);
+    assert(organic[i_x][i_y] < 50000 );
     assert(boots[i_xy] != nullptr);
     if (bots_ideas.rotate != 0) {
         //If dies of low energy
@@ -154,22 +174,25 @@ void Field::ObjectTick2(int &i_xy) {
             boots[i_xy]->step_spend_rotate = RotateCost;
         }
     }
-
+    assert(organic[i_x][i_y] >= 0);
+    assert(organic[i_x][i_y] < 50000 );
     //Move
     //Photosynthesis
     if (bots_ideas.photosynthesis) { // TOO make photosynthesis effectivity
         auto ps_ab = std::sqrt((10 + boots[i_xy]->dnk.ps_ability) / 10);
         auto sun = static_cast<int>(GetSunEnergy(i_x, i_y) * ps_ab);
         // TODO extra sun to garbage @chernosjom@
-        organic[i_x][i_y] += boots[i_xy]->GiveEnergy(sun, PS);
+        auto goes_to_org = boots[i_xy]->GiveEnergy(sun, PS);
+        organic[i_x][i_y] += goes_to_org;
         boots[i_xy]->stat_ps++;
-
+        // TODO WTF
+//        organic[i_x][i_y] = std::max(0, organic[i_x][i_y]);
+        assert(organic[i_x][i_y] >= 0);
         // and take minerals
-        organic[i_x][i_y] += boots[i_xy]->GiveEnergy(terrain[i_x][i_y] == Terrain::earth ?
-                                                     FoodbaseMineralsTerrain : FoodbaseMineralsSea,
-                                                     EnergySource::mineral);
+        auto mineral = terrain[i_x][i_y] == Terrain::earth ? FoodbaseMineralsTerrain : FoodbaseMineralsSea;
+        organic[i_x][i_y] += boots[i_xy]->GiveEnergy(mineral, EnergySource::mineral);
 
-
+        assert(organic[i_x][i_y] >= 0);
         auto till_limit = boots[i_xy]->dnk.max_energy - boots[i_xy]->energy;
         auto to_take = std::min(till_limit, organic[i_x][i_y]);
         if (to_take > 0) {
@@ -177,7 +200,9 @@ void Field::ObjectTick2(int &i_xy) {
             organic[i_x][i_y] -= to_take;
             assert(organic[i_x][i_y] >= 0);
         }
-
+        assert(organic[i_x][i_y] >= 0);
+        assert(organic[i_x][i_y] >= 0);
+        if (organic[i_x][i_y] >= 0) organic[i_x][i_y] = 40000;
         return;
     }
 
@@ -221,7 +246,7 @@ inline void Field::tick_single_thread() {
                 auto [x_, y_] = XYr(i_xy);
                 auto o_tick = boots[i_xy]->tick(terrain[x_][y_]);
                 if (o_tick == 1) {
-                    organic[x_][y_] = GiveBirthCost + boots[i_xy]->energy;
+                    organic[x_][y_] = GiveBirthCost + std::max(0, boots[i_xy]->energy);
                     boots[i_xy] = nullptr;
                     return;
                 }
@@ -240,7 +265,11 @@ inline void Field::tick_single_thread() {
         }
     };
     tbb::parallel_for(tbb::blocked_range<int>(0, total), tbb_f1);
-    tbb::parallel_for(0, total, [&](auto ix) { if (boots[ix])ObjectTick1(ix); });
+    tbb::parallel_for(0, total, [&](auto ix) {
+        auto [i_x, i_y] = XYr(ix);
+        assert(organic[i_x][i_y] >= 0);
+        if (boots[ix])ObjectTick1(ix);
+    });
     const auto tbb_step_ = total / 9;
     //    for (auto i = 0; i < total; i++) f2(i);
     for (auto ii = 0; ii < total; ii += tbb_step_) {
@@ -330,10 +359,10 @@ void Field::draw(frame_type &image) {
             break;
         }
         case sun_energy: {
-            memcpy(tmp_buf2draw, sun_power, sizeof(sun_power));
+            fill_buf_draw(RenderTypes::sun_energy, 2);
             auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
-            v << "max val:" << max_val;
+            v << "max:" << max_val;
             extra_data.emplace_back("SUN");
             extra_data.emplace_back(v.str());
             break;
@@ -403,17 +432,19 @@ void Field::draw(frame_type &image) {
             v << "max val:" << max_val;
             extra_data.emplace_back("max_life_time");
             extra_data.emplace_back(v.str());
-        }
             break;
+        }
+
         case ::garb: {
-            fill_buf_draw(garb, 2);
+            memcpy(&tmp_buf2draw, &organic, sizeof(organic));
             auto max_val = drawAnyGrayScale(image);
             std::ostringstream v;
             v << "max val:" << max_val;
-            extra_data.emplace_back("Garbage");
+            extra_data.emplace_back("organic");
             extra_data.emplace_back(v.str());
-        }
             break;
+        }
+
         case lifetime: {
             fill_buf_draw(lifetime, 2);
             auto max_val = drawAnyGrayScale(image);
@@ -421,8 +452,8 @@ void Field::draw(frame_type &image) {
             v << "max val:" << max_val;
             extra_data.emplace_back("lifetime");
             extra_data.emplace_back(v.str());
-        }
-            break;
+            break;        }
+
         case fertility: {
             fill_buf_draw(fertility, 2);
             auto max_val = drawAnyGrayScale(image);
@@ -430,8 +461,9 @@ void Field::draw(frame_type &image) {
             v << "max val:" << max_val;
             extra_data.emplace_back("fertility");
             extra_data.emplace_back(v.str());
-        }
             break;
+        }
+
         case dnk_energy_given_on_birth: {
             fill_buf_draw(dnk_energy_given_on_birth, 2);
             auto max_val = drawAnyGrayScale(image);
@@ -572,7 +604,7 @@ void Field::updateSunEnergy() {
     const auto gra_to_rad = 3.14159265f / 180;
 
     auto day_of_year = static_cast<int>(frame_number % p_year);
-    auto deg_cur_axe = deg_earth_axe - deg_earth_axe_per_day * std::abs(day_of_year - p_half_year);
+    auto deg_cur_axe = deg_earth_axe - deg_earth_axe_per_day * static_cast<float>(std::abs(day_of_year - p_half_year));
     tbb::parallel_for(0, FieldCellsHeight, [&](auto y) {
         auto terr_deg = deg_cur_axe + deg_low + deg_one * static_cast<float>(FieldCellsHeight - y);
         float coef;
@@ -582,7 +614,6 @@ void Field::updateSunEnergy() {
         }
         int sp = static_cast<int>(PhotosynthesisReward_Summer * coef);
         for (auto x = 0; x < FieldCellsWidth; x++)
-//            sun_power[x][y] = CalcSunEnergy(x, y);
             sun_power[x][y] = terrain[x][y] == Terrain::earth ? sp : sp / 2;
     });
 }
@@ -593,11 +624,11 @@ int Field::GetSunEnergy(int x, int y) const {
 
 int Field::drawAnyGrayScale(frame_type &image) {
     int max_val{-10000};
-    int min_val{100000000};
+//    int min_val{100000000};
     for (auto & x : tmp_buf2draw)
         for (int & y : x) {
             max_val = std::max(max_val, y);
-            min_val = std::min(min_val, y);
+//            min_val = std::min(min_val, y);
         }
     int c_;
 //    for (auto x = 0; x < FieldCellsWidth; x++)
@@ -627,9 +658,9 @@ void Field::drawAnyBGRScale(frame_type &image, int mx_0, int mx_1, int mx_2) {
                           cv::Point(FieldX + x * FieldCellSize + FieldCellSize - 1,
                                     FieldY + y * FieldCellSize + FieldCellSize - 1),
                           cv::Scalar(
-                                  tmp_buf0draw[x][y] * 255 / (mx_0 + 1),
-                                  tmp_buf1draw[x][y] * 255 / (mx_0 + 1),
-                                  tmp_buf2draw[x][y] * 255 / (mx_0 + 1)
+                                  static_cast<float>(tmp_buf0draw[x][y] * 255 / (mx_0 + 1)),
+                                  static_cast<float>(tmp_buf1draw[x][y] * 255 / (mx_0 + 1)),
+                                  static_cast<float>(tmp_buf2draw[x][y] * 255 / (mx_0 + 1))
                           ),
                           -1,
                           cv::LINE_8, 0);
@@ -652,6 +683,7 @@ int Field::fill_buf_draw(RenderTypes val, int buf_n) {
                     case energy:
                         break;
                     case sun_energy:
+                        o_val = sun_power[x][y];
                         break;
                     case max_energy:
                         o_val = boots[t_val]->dnk.max_energy;

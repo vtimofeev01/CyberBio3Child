@@ -13,7 +13,7 @@ void Bot::RandomizeColor() {
 
 void Bot::ChangeColor(const int str, int pref_b, int pref_g, int pref_r) {
     int i = rand() % 3;
-    auto p_sum = pref_b + pref_g + pref_r + 1.f;
+    auto p_sum = pref_b + pref_g + pref_r + 1;
     ab_color = cv::Scalar(static_cast<double>(255 * pref_b / p_sum),
                           static_cast<double>(255 * pref_g / p_sum),
                           static_cast<double>(255 * pref_r / p_sum));
@@ -32,9 +32,9 @@ void Bot::ChangeColor(const int str, int pref_b, int pref_g, int pref_r) {
 [[maybe_unused]] void Bot::SlightlyMutate() {
     brain.MutateSlightly();
 
-#ifdef ChangeColorSlightly
-    ChangeColor(10, 0, 0, 0);
-#endif
+//#ifdef ChangeColorSlightly
+//    ChangeColor(10, 0, 0, 0);
+//#endif
 }
 
 
@@ -120,7 +120,8 @@ BrainOutput Bot::think(BrainInput input) {
 }
 
 int Bot::tick(Terrain terr) {
-
+    assert(energy >= 0);
+    assert(energy < 50000 );
     step_energyBirth       = 0;
     step_energyFromPS      = 0;
     step_energyFromKills    = 0;
@@ -147,6 +148,8 @@ int Bot::tick(Terrain terr) {
     step_spend_kill_ab = dnk.kill_ability * pen_factor;
     step_spend_ps_ab = dnk.ps_ability * pen_factor;
     step_spend_max_en = dnk.max_energy / 100;
+    step_move_ability_earth = dnk.move_ability_earth;
+    step_move_ability_sea = dnk.move_ability_sea;
 
     if (terr == Terrain::sea) {
         step_spend_front_def /= 2;
@@ -155,13 +158,16 @@ int Bot::tick(Terrain terr) {
         step_spend_kill_ab /= 2;
         step_spend_ps_ab /= 2;
         step_spend_max_en /= 2;
+        step_move_ability_earth /=2;
+        step_move_ability_sea /= 2;
     }
     loss = step_spend_front_def + step_spend_front_all + step_spend_mineral_ab + step_spend_kill_ab +
-            step_spend_ps_ab + step_spend_max_en;
+            step_spend_ps_ab + step_spend_max_en + step_move_ability_earth + step_move_ability_sea;
     energy -= static_cast<int>(loss);
     if (((energy) <= 0) || (lifetime >= MaxBotLifetime))
         return 1;
-
+    assert(energy >= 0);
+    assert(energy < 50000 );
     return 0;
 }
 
@@ -183,7 +189,7 @@ void Bot::draw(frame_type &image, int _xy, bool use_own_color) {
 }
 
 
-void Bot::drawEnergy(frame_type &image, int _xy) {
+void Bot::drawEnergy(frame_type &image, int _xy) const {
     auto c_ = energy * 255 / (dnk.max_energy + 1);
     auto [xx, yy] = XYr(_xy);
     auto pt1 = cv::Point(FieldX + xx * FieldCellSize, FieldY + yy * FieldCellSize);
@@ -228,38 +234,43 @@ void Bot::Rotate(int dir) {
 }
 
 
-int Bot::GiveEnergy(int num, EnergySource src) {
-    energy += num;
+int Bot::GiveEnergy(int in_energy, EnergySource src) {
+    auto n_num{in_energy};
+    energy += in_energy;
     int out{0};
 
     if (energy > dnk.max_energy) {
         out = energy - dnk.max_energy;
         energy = dnk.max_energy;
-
+        n_num -= out;
     }
 
     if (src == PS) {
-        energyFromPS += num;
-        step_energyFromPS = num;
+        energyFromPS += n_num;
+        step_energyFromPS = n_num;
     } else if (src == kills) {
-        energyFromKills += num;
-        step_energyFromKills = num;
+        energyFromKills += n_num;
+        step_energyFromKills = n_num;
     } else if (src == mineral) {
-        energyFromMinerals += num;
-        step_energyFromMinerals = num;
+        energyFromMinerals += n_num;
+        step_energyFromMinerals = n_num;
     } else if (src == ES_garbage) {
-        energyFromOrganic += num;
-        step_energyFromOrganic = num;
+        energyFromOrganic += n_num;
+        step_energyFromOrganic = n_num;
     } else if (src == birth) {
-        step_energyBirth = num;
+        step_energyBirth = in_energy;
+        energy = in_energy;
     }
+    assert(energy >= 0);
+    assert(energy < 50000 );
     return out;
 }
 
-bool Bot::TakeEnergy(int val) {
+void Bot::TakeEnergy(int val) {
     energy -= val;
-
-    return energy <= 0;
+    if (energy <= 0) {
+        energy = 0;
+    }
 }
 
 
@@ -270,7 +281,8 @@ oPoint Bot::GetDirection() const {
 
 Bot::Bot(int Energy, t_object &prototype) : brain(&prototype->brain),
                                             weight(0) {
-
+    assert(energy >= 0);
+    assert(energy < 50000 );
     energy = GiveEnergy(Energy, EnergySource::birth);
     stunned = StunAfterBirth;
     fertilityDelay = prototype->dnk.fertilityDelay;
@@ -286,10 +298,14 @@ Bot::Bot(int Energy, t_object &prototype) : brain(&prototype->brain),
     Mutate();
     auto diff = FindKinship(prototype);
     ChangeColor((int) (255.f * diff), dnk.minerals_ability, dnk.ps_ability, dnk.kill_ability);
+    assert(energy >= 0);
+    assert(energy < 50000 );
 }
 
 
-Bot::Bot(int Energy) : weight(0) {
+Bot::Bot(int Energy) : weight(0), energy(0) {
+    assert(energy >= 0);
+    assert(energy < 50000 );
     energy = GiveEnergy(Energy, EnergySource::birth);
     stunned = StunAfterBirth;
     fertilityDelay = FertilityDelay;

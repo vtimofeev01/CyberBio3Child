@@ -39,7 +39,6 @@ const int FoodbaseMineralsSea{4 * UE};
 const int PhotosynthesisReward_Summer{8 * UE};
 const int MaxPossibleEnergyForABot{50 * UE};
 const int EnergyPassedToAChild{50 * UE};
-const int EveryTickEnergyPenalty{0 *UE};
 const int AttackCost{4 * UE};
 const int MoveCost{1 * UE};
 const int RotateCost{1 * UE / 5};
@@ -47,8 +46,6 @@ const int GiveBirthCost{10 * UE};
 
 #define StunAfterBirth 1    //How many turns creature cannot act after his birth
 #define FertilityDelay 0    //Delay before next birth
-
-#define ChangeColorSlightly
 
 #define MutateNeuronsMaximum 5
 #define MutateNeuronsSlightlyMaximum 0

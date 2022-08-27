@@ -104,7 +104,7 @@ class Bot {
     void RandomizeColor();
 
     //Shift color a little (-10 to +10)
-    void ChangeColor(const int str, int pref_b, int pref_g, int pref_r);
+    void ChangeColor(int str, int pref_b, int pref_g, int pref_r);
 
     //Experimental
     [[maybe_unused]] void SlightlyMutate();
@@ -129,7 +129,7 @@ public:
     unsigned long stat_birth = 0;
     unsigned long stat_ps = 0;
 
-    //øò_ûåóç Energy acquired from different sources
+    // Energy acquired from different sources
     unsigned long step_energyBirth       = 0;
     unsigned long step_energyFromPS      = 0;
     unsigned long step_energyFromKills    = 0;
@@ -146,6 +146,8 @@ public:
     unsigned long step_spend_attack      = 0;
     unsigned long step_spend_rotate      = 0;
     unsigned long step_spend_move        = 0;
+    unsigned long step_move_ability_earth = 0;
+    unsigned long step_move_ability_sea = 0;
 
 
 
@@ -166,7 +168,7 @@ public:
     void draw(frame_type &image, int _xy, bool use_own_color);
 
     //Bot draw function is energy mode
-    void drawEnergy(frame_type &image, int _xy);
+    void drawEnergy(frame_type &image, int _xy) const;
 
     //Bot draw function is predators mode
     void drawPredators(frame_type &image, int _xy);
@@ -176,16 +178,16 @@ public:
 
     //Give a bot some energy
     // when there are too much energy it goes to organic
-    int GiveEnergy(int num, EnergySource src);
+    int GiveEnergy(int in_energy, EnergySource src);
 
     //Get rotation
     [[nodiscard]] oPoint GetDirection() const;
 
     //Take away bot energy, return true if 0 or below (bot dies)
-    bool TakeEnergy(int val);
+    void TakeEnergy(int val);
     float FindKinship(t_object &stranger) const;
 
-    Bot(int Energy);
+    explicit Bot(int Energy);
     //Inherit from a parent
     Bot(int Energy, t_object &prototype);
 
