@@ -279,7 +279,7 @@ oPoint Bot::GetDirection() const {
 }
 
 
-Bot::Bot(int Energy, t_object &prototype) : brain(&prototype->brain),
+Bot::Bot(int Energy, t_object &prototype) : energy(0),brain(&prototype->brain),
                                             weight(0) {
     assert(energy >= 0);
     assert(energy < 50000 );
